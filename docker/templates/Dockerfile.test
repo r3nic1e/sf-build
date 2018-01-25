@@ -1,0 +1,8 @@
+FROM <%= image_name %>:<%= image_tag %>
+
+RUN apt-get update -qq && \
+    apt-get install -qq -y curl gnupg
+
+ADD <%= repo_url %>/pubkey.asc /tmp
+RUN cat /tmp/pubkey.asc | apt-key add -
+ADD <%= apt_sources %> /etc/apt/sources.list.d/aptly.list

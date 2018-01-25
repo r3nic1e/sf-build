@@ -1,0 +1,18 @@
+aptly:
+  api_url: http://localhost:8080
+  force_replace: 0
+  repo: sf
+  repo_url: http://localhost
+  signing:
+    SecretKeyring: /aptly/secring.gpg
+    Keyring: /aptly/pubring.gpg
+
+image:
+  name: r3nic1e/sf-build
+
+container: sf-runner
+
+output: deb
+
+data_container: sf-data
+data_container_image: busybox:latest

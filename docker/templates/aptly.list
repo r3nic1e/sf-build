@@ -1,0 +1,3 @@
+<% apt_sources.each do | item | %>
+deb [arch=amd64] <%= item[:repo_url] %>/<%= item[:repo] %> <%= item[:distribution] %> main
+<% end %>

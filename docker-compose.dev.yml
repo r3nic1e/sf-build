@@ -1,0 +1,9 @@
+cookery:
+  build: .
+  volumes:
+    - .:/usr/src
+    - /var/run/docker.sock:/var/run/docker.sock
+    - $HOME/.ssh:/.ssh:ro
+    - $HOME/.docker:/root/.docker:ro
+  net: host
+  command: /bin/bash
