@@ -6,8 +6,6 @@ require_relative 'repos'
 require_relative 'snapshots'
 require_relative 'uploads'
 
-Unirest.timeout 600
-
 class Aptly
   # @param [String] aptly_api_url
   def initialize(aptly_api_url)

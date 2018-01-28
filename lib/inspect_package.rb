@@ -124,6 +124,7 @@ class PackageRepository
     package = (@repository.key?(package_name) ? @repository[package_name] : SFPackage.new(package_name))
 
     load_package_recipe(package) unless package.has_recipe?
+    return unless package.has_recipe?
     search_package_uploads(package) unless package.has_uploaded_versions?
 
     @repository[package.name] = package
@@ -150,7 +151,12 @@ class PackageRepository
 
   # @param [SFPackage] package
   def load_package_recipe(package)
-    inspect_command = "fpm-cook inspect #{package.name}/recipe.rb".split
+    recipe_file = File.join package.name, 'recipe.rb'
+    unless File.exist? File.join('recipes', recipe_file)
+      puts "DEBUG: recipe #{recipe_file} not found"
+      return
+    end
+    inspect_command = "fpm-cook inspect #{recipe_file}".split
 
     puts "DEBUG: fpm-cook inspect '#{package.name}' (#{Thread.current})"
     stdout, stderr, rcode = @inspect_container.exec(inspect_command)
@@ -295,6 +301,7 @@ class PackageQueue
 
           unless inspected
             package = @repository[package_name]
+            next if package.nil?
             package.build_depends.each { |dependency| @inspect_queue.push dependency.name }
           end
         end
@@ -313,6 +320,7 @@ class PackageQueue
   # @param [String] package_name
   def <<(package_name)
     package = @repository[package_name]
+    return if package.nil?
     package.build_depends.each { |dependency| self.<< dependency.name }
 
     return if @queue.include? package.name

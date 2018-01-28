@@ -14,7 +14,7 @@ def parse_args
     verbose: false
   }
   OptionParser.new do |parser|
-    parser.on '-d', '--distribution', %w[natty precise trusty xenial], 'Ubuntu distribution to build for', :REQUIRED do |v|
+    parser.on '-d', '--distribution', %w[precise trusty xenial], 'Ubuntu distribution to build for', :REQUIRED do |v|
       options[:distribution] = v
     end
     parser.on '-v', '--[no-]verbose', 'Show build logs' do |v|
