@@ -136,13 +136,23 @@ def build_release(args)
 
   puts "Building packages for distribution: #{args[:distribution]}"
 
-  make_build_queue(args[:packages], args[:distribution], debuild, force_build: args[:force_package_build]).each do |package|
-    puts "Start release build for package #{package.name}"
+  build_queue = if args[:skip_package_inspect]
+                  args[:packages]
+                else
+                  make_build_queue(args[:packages], args[:distribution], debuild, force_build: args[:force_package_build])
+                end
+
+  build_queue.each do |package|
+    puts "Start release build for package #{package}"
     debuild.main(
       package: package,
       distribution: args[:distribution],
       verbose: args[:verbose],
-      skip_apt_update: args[:skip_apt_update]
+      skip_apt_update: args[:skip_apt_update],
+      skip_build: args[:skip_package_build],
+      skip_upload: args[:skip_package_upload],
+      command: args[:command],
+      use_existing_depends_image: args[:use_existing_depends_image]
     )
   end
 end

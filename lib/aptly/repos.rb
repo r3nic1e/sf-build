@@ -7,7 +7,7 @@ module Repos
     data['DefaultDistribution'] = default_distribution unless default_distribution.nil?
     data['DefaultComponent'] = default_component unless default_component.nil?
 
-    r = aptly_request 'POST', 'api/repos', parameters: data
+    r = aptly_request 'POST', 'api/repos', payload: data
 
     if r.code == 400
       raise Aptly::ExistsError.new("Repo #{name} already exists")
@@ -29,7 +29,7 @@ module Repos
     data['DefaultDistribution'] = default_distribution unless default_distribution.nil?
     data['DefaultComponent'] = default_component unless default_component.nil?
 
-    r = aptly_request 'PUT', "api/repos/#{name}", parameters: data
+    r = aptly_request 'PUT', "api/repos/#{name}", payload: data
     if r.code == 404
       raise Aptly::NotExistsError.new("Repo #{name} does not exist")
     end
@@ -65,7 +65,7 @@ module Repos
   def add_packages_by_name(name:, packages:)
     data = {'PackageRefs': packages}
 
-    r = aptly_request('POST', "api/repos/#{name}/packages", parameters: data)
+    r = aptly_request('POST', "api/repos/#{name}/packages", payload: data)
 
     case r.code
       when 400
@@ -80,7 +80,7 @@ module Repos
   def delete_packages_by_name(name:, packages:)
     data = {'PackageRefs': packages}
 
-    r = aptly_request('DELETE', "api/repos/#{name}/packages", parameters: data)
+    r = aptly_request('DELETE', "api/repos/#{name}/packages", payload: data)
 
     if r.code == 404
       raise Aptly::NotExistsError.new("Repo #{name} does not exist")
@@ -99,7 +99,7 @@ module Repos
       end
     end
 
-    r = aptly_request('GET', "api/repos/#{repo}/packages", parameters: data)
+    r = aptly_request('GET', "api/repos/#{repo}/packages", payload: data)
 
     if r.code == 404
       raise NotExistsError("repo #{repo} does not exist")

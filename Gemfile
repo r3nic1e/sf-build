@@ -2,8 +2,7 @@ source 'https://rubygems.org'
 
 # debuild dependencies
 gem 'docker-api'
-gem 'unirest'
-gem 'rest-client', '~> 1.7.3'
+gem 'rest-client'
 gem 'git'
 
 # fpm-cookery dependencies

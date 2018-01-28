@@ -23,9 +23,9 @@ module Publishes
 
     puts "DEBUG: request_data=#{data}"
     if prefix.nil?
-      r = aptly_request 'POST', 'api/publish', parameters: data
+      r = aptly_request 'POST', 'api/publish', payload: data
     else
-      r = aptly_request 'POST', "api/publish/#{prefix}", parameters: data
+      r = aptly_request 'POST', "api/publish/#{prefix}", payload: data
     end
 
     puts "DEBUG: response=#{r.inspect}"
@@ -46,7 +46,7 @@ module Publishes
     }
     data['Snapshots'] = snapshots unless snapshots.nil?
 
-    r = aptly_request 'PUT', "api/publish/#{prefix}/#{distribution}", parameters: data
+    r = aptly_request 'PUT', "api/publish/#{prefix}/#{distribution}", payload: data
     r.body
   end
 

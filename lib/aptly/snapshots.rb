@@ -9,7 +9,7 @@ module Snapshots
     data = {Name: name}
     data['Description'] = description unless description.nil?
 
-    r = aptly_request 'POST', "api/repos/#{repo}/snapshots", parameters: data
+    r = aptly_request 'POST', "api/repos/#{repo}/snapshots", payload: data
     puts "DEBUG: #{r.body}"
 
     case r.code
@@ -32,7 +32,7 @@ module Snapshots
     data['SourceSnapshots'] = source_snapshots unless source_snapshots.nil?
     data['PackageRefs'] = package_refs unless package_refs.nil?
 
-    r = aptly_request('POST', 'api/snapshots', parameters: data)
+    r = aptly_request('POST', 'api/snapshots', payload: data)
 
     case r.code
       when 400
@@ -53,7 +53,7 @@ module Snapshots
       return nil
     end
 
-    r = aptly_request('PUT', "api/snapshots/#{name}", parameters: data)
+    r = aptly_request('PUT', "api/snapshots/#{name}", payload: data)
 
     case r.code
       when 404
@@ -111,7 +111,7 @@ module Snapshots
       data = {'q': "#{name} (#{comp_symbol} #{version})"}
     end
 
-    r = aptly_request('GET', "api/snapshots/#{snapshot}/packages", parameters: data)
+    r = aptly_request('GET', "api/snapshots/#{snapshot}/packages", payload: data)
     if r.code == 404
       raise Aptly::NotExistsError("Snapshot #{snapshot} does not exist")
     end
