@@ -51,7 +51,7 @@ class Aptly
     end
 
     begin
-      RestClient.method(method.downcase).call(url, payload, headers)
+      RestClient.method(method.downcase).call(url, payload: payload, headers: headers)
     rescue RestClient::ExceptionWithResponse => err
       err.response
     end

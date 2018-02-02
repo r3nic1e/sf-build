@@ -34,9 +34,6 @@ ADD ssh_config /root/.ssh/config
 RUN chown -R root:root /root/.ssh && \
     chmod -R 700 /root/.ssh
 
-ADD Gemfile Gemfile.lock /usr/src/
-RUN cd /usr/src && bundle install
-
 ADD entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 
@@ -45,3 +42,6 @@ WORKDIR /recipes
 ADD <%= repo_url %>/pubkey.asc /tmp
 RUN cat /tmp/pubkey.asc | apt-key add -
 ADD <%= apt_sources %> /etc/apt/sources.list.d/aptly.list
+
+ADD Gemfile Gemfile.lock /usr/src/
+RUN cd /usr/src && bundle install --without='test development'

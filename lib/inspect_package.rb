@@ -156,7 +156,7 @@ class PackageRepository
       puts "DEBUG: recipe #{recipe_file} not found"
       return
     end
-    inspect_command = "fpm-cook inspect #{recipe_file}".split
+    inspect_command = "/bin/fpm-cook inspect #{recipe_file}".split
 
     puts "DEBUG: fpm-cook inspect '#{package.name}' (#{Thread.current})"
     stdout, stderr, rcode = @inspect_container.exec(inspect_command)

@@ -99,10 +99,10 @@ module Repos
       end
     end
 
-    r = aptly_request('GET', "api/repos/#{repo}/packages", payload: data)
+    r = aptly_request 'GET', "api/repos/#{repo}/packages", payload: data
 
     if r.code == 404
-      raise NotExistsError("repo #{repo} does not exist")
+      raise Aptly::NotExistsError.new("repo #{repo} does not exist")
     end
     r.body
   end

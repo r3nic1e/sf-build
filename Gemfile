@@ -4,18 +4,12 @@ source 'https://rubygems.org'
 gem 'docker-api'
 gem 'rest-client'
 gem 'git'
-
-# fpm-cookery dependencies
-gem 'fpm', '~> 1.1'
-gem 'facter'
-gem 'puppet', '~> 4.7.0'
-gem 'addressable', '~> 2.3.8'
-gem 'systemu'
-gem 'json', '~> 1.8.1'
-gem 'json_pure', '>= 1.7.7'
+gem 'fpm-cookery'
+gem 'puppet'
+gem 'syck'
 
 group :test do
-  gem 'rspec', require: false
+  gem 'minitest', require: false
   gem 'simplecov', require: false
 end
 

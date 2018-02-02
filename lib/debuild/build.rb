@@ -195,9 +195,9 @@ class Debuild
   def create_build_container(command: nil, data_container:, image_repotag:, image_tag:, package_name:,
                              skip_apt_update: false, install_build_depends: false)
     if install_build_depends
-      default_command = %w[fpm-cook package --install-build-depends --tmp-root=/build --cache-dir=/sources --pkg-dir=/deb --color]
+      default_command = %w[/bin/fpm-cook package --install-build-depends --tmp-root=/build --cache-dir=/sources --pkg-dir=/deb --color]
     else
-      default_command = %w[fpm-cook package --tmp-root=/build --cache-dir=/sources --pkg-dir=/deb --color]
+      default_command = %w[/bin/fpm-cook package --tmp-root=/build --cache-dir=/sources --pkg-dir=/deb --color]
     end
 
     puts 'DEBUG: default command to run in build container'
@@ -283,7 +283,7 @@ class Debuild
     puts "DEBUG: depends_container_name  => #{depends_container_name}"
     puts "DEBUG: depends_container_image => #{depends_container_image}"
 
-    default_command = %w[fpm-cook install-build-deps --color]
+    default_command = %w[/bin/fpm-cook install-build-deps --color]
 
     puts 'DEBUG: default command to run in depends container'
     puts "DEBUG: #{default_command}"
