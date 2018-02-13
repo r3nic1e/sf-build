@@ -10,6 +10,7 @@ class Aptly
   # @param [String] aptly_api_url
   def initialize(aptly_api_url)
     @aptly_api_url = aptly_api_url
+    #RestClient.log = 'stderr'
   end
 
   # @param [Symbol] prefix
@@ -47,11 +48,11 @@ class Aptly
     # dirty hack to send json
     if headers.empty? and not (not payload.nil? and payload.key? :multipart)
       payload = payload.to_json
-      headers = { Content_Type: :json }
+      headers = { 'Content-Type' => 'application/json' }
     end
 
     begin
-      RestClient.method(method.downcase).call(url, payload: payload, headers: headers)
+      RestClient::Request.execute(method: method.downcase.to_sym, url: url, payload: payload, headers: headers)
     rescue RestClient::ExceptionWithResponse => err
       err.response
     end
