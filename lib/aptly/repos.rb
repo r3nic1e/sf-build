@@ -11,7 +11,6 @@ module Repos
     r = aptly_request 'POST', 'api/repos', payload: data
 
     if r.code == 400
-      p r.body
       raise Aptly::ExistsError, "Repo #{name} already exists"
     end
     r.body

@@ -113,8 +113,6 @@ def create_devel_config(username: nil, use_release_images: false)
 
   %i[repo snapshot_prefix merge_prefix].each { |key| base_config[:aptly][key] += username }
 
-  base_config
-
   File.open 'devel.yml', 'w' do |f|
     f.write YAML.dump base_config.stringify_keys
   end

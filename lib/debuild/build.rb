@@ -1,6 +1,7 @@
 require 'fileutils'
 require 'docker'
 require_relative '../docker_helper'
+require_relative 'config'
 
 class Debuild
   attr_accessor :skip_depends_image
@@ -8,12 +9,7 @@ class Debuild
   def initialize(release: false, use_release_images: false, skip_depends_image: false)
     docker_login
 
-    if release
-      require_relative 'release'
-    else
-      require_relative 'devel'
-    end
-
+    @use_release_config = release
     @use_release_images = use_release_images
     @skip_depends_image = skip_depends_image
   end
@@ -36,8 +32,11 @@ class Debuild
     end
   end
 
-  def build_deb(package:, distribution:, verbose: false, skip_apt_update: false,
-                command: nil, use_existing_depends_image: false)
+  def build_deb(package:, distribution:, **args)
+    verbose = args[:verbose]
+    skip_apt_update = args[:skip_apt_update]
+    command = args[:command]
+    use_existing_depends_image = args[:use_existing_depends_image]
     package_name = if package.is_a? SFPackage
                      package.name
                    else
@@ -48,7 +47,7 @@ class Debuild
     image_tag = distribution
     image_repotag = "#{image_name}:#{image_tag}"
 
-    check_build_images image_name: image_name, image_repotag: image_tag
+    check_build_images image_repotag: image_tag
 
     data_container = create_data_container image_tag: image_tag
 
@@ -119,7 +118,7 @@ class Debuild
     exit return_code
   end
 
-  def check_build_images(image_name:, image_repotag:)
+  def check_build_images(image_repotag:)
     images = Docker::Image.all
     valid_images = []
     images.each do |image|
@@ -192,8 +191,11 @@ class Debuild
     end
   end
 
-  def create_build_container(command: nil, data_container:, image_repotag:, image_tag:, package_name:,
-                             skip_apt_update: false, install_build_depends: false)
+  def create_build_container(data_container:, image_repotag:, image_tag:, package_name:, **args)
+    command = args[:command]
+    skip_apt_update = args[:skip_apt_update]
+    install_build_depends = args[:install_build_depends]
+
     if install_build_depends
       default_command = %w[/bin/fpm-cook package --install-build-depends --tmp-root=/build --cache-dir=/sources --pkg-dir=/deb --color]
     else
@@ -230,9 +232,11 @@ class Debuild
     [build_container, build_container_name, command]
   end
 
-  def create_depends_image(command: nil,
-                           image_repotag:, image_tag:, package:,
-                           skip_apt_update: false, verbose: false, use_existing_image: false)
+  def create_depends_image(image_repotag:, image_tag:, package:, **args)
+    command = args[:command]
+    skip_apt_update = args[:skip_apt_update]
+    verbose = args[:verbose]
+    use_existing_image = args[:use_existing_image]
     image_name = image_repotag.split(':')[0]
     package_name = if package.is_a? SFPackage
                      package.name
@@ -421,4 +425,60 @@ class Debuild
     puts 'Removing test container'
     test_container.remove
   end
+
+  def main(package:, distribution:, **args)
+    verbose = args[:verbose]
+    skip_apt_update = args[:skip_apt_update]
+    skip_build = args[:skip_build]
+    skip_upload = args[:skip_upload]
+    command = args[:command]
+    use_existing_depends_image = args[:use_existing_depends_image]
+    package_name = if package.is_a? SFPackage
+                     package.name
+                   else
+                     package
+                   end
+
+    @config.update_timestamp
+    clean_deb distribution: distribution
+    available_packages = @config.packages
+
+    unless available_packages.include? package_name
+      puts "Unknown package #{package_name}, use one of these: #{available_packages}"
+      exit 1
+    end
+
+    unless skip_build
+      clean_deb distribution: distribution
+      build_deb package: package, distribution: distribution, verbose: verbose, skip_apt_update: skip_apt_update,
+                command: command, use_existing_depends_image: use_existing_depends_image
+    end
+
+    update_aptly distribution: distribution unless skip_upload
+  end
+
+  def update_aptly(distribution:, skip_upload: false)
+    puts "Distribution: #{distribution}"
+    puts 'DEBUG: @config.settings'
+    pp @config.settings
+
+    deb_path = File.join @config.output, distribution
+    deb_abs_path = File.absolute_path deb_path
+
+    repo = "#{@config.aptly_repo}-#{distribution}"
+
+    begin
+      result = @aptly.repo_create name: repo, default_distribution: distribution
+      puts "Repo #{repo} created"
+      puts result
+    rescue Aptly::ExistsError
+      puts "Repo #{repo} already exists"
+    end
+
+    upload_deb directory: deb_abs_path, repo: repo unless skip_upload
+    update_repo repo: repo, distribution: distribution
+
+    puts 'Done'
+  end
+
 end

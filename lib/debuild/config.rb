@@ -3,16 +3,9 @@ class Debuild
 
   class Config
     attr_reader :settings, :gitlab
-
-    def initialize(settings: {}, release_settings: {}, use_release_images: false)
-      update_timestamp
-      @gitlab = ENV['CI_BUILD_REF_NAME']
-
-      @settings = settings
-      @release_settings = release_settings
-
-      @use_release_images = use_release_images
-    end
+    @settings = {}
+    # TODO: change to global CI detection
+    @gitlab = false
 
     def timestamp
       @timestamp
@@ -23,51 +16,44 @@ class Debuild
     end
 
     def image_name(release: false)
-      if release || @use_release_images
-        @release_settings['image']['name']
-      else
-        @settings['image']['name']
-      end
+      @settings['image']['name']
     end
 
-    def aptly_repo(release: false)
+    def aptly_repo
       @settings['aptly']['repo']
     end
 
-    def aptly_repo_url(release: false)
+    def aptly_repo_url
       @settings['aptly']['repo_url']
     end
 
-    def aptly_api_url(release: false)
+    def aptly_api_url
       @settings['aptly']['api_url']
     end
 
     def apt_sources(distribution)
-      sources = [
-        "deb [arch=amd64] #{@release_settings['aptly']['repo_url']}/#{@release_settings['aptly']['repo']}-#{distribution} #{distribution} main",
+      [
         "deb [arch=amd64] #{@settings['aptly']['repo_url']}/#{@settings['aptly']['repo']}-#{distribution} #{distribution} main"
       ]
-
-      sources.uniq
     end
 
-    def output(release: false)
+    def output
       @settings['output']
     end
 
-    def container(release: false)
+    def container
       @settings['container']
     end
 
-    def data_container(release: false)
+    def data_container
       @settings['data_container']
     end
 
-    def signing(release: false)
+    def signing
       @settings['aptly']['signing']
     end
 
-    def snapshot_prefix(release: false)
+    def snapshot_prefix
       @settings['aptly']['snapshot_prefix']
     end
 
@@ -90,8 +76,13 @@ class Debuild
   end
 
   @config = nil
+  @use_release_config = false
 
-  def create_config(settings: {}, release_settings: {}, use_release_images: false)
-    @config = Config.new(settings: settings, release_settings: release_settings, use_release_images: use_release_images)
+  require_relative 'devel'
+  require_relative 'release'
+  def read_settings(*args, **kwargs)
+
+    @config = (@use_release_config ? ReleaseConfig : DevelConfig).new(*args, **kwargs)
+    @aptly = Aptly.new @config.aptly_api_url
   end
 end
