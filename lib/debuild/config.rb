@@ -1,10 +1,13 @@
 class Debuild
+  # @!attribute [r] config
+  #   @return [Debuild::Config]
   attr_reader :config, :aptly
 
+  # @abstract
   class Config
     attr_reader :settings, :gitlab
     @settings = {}
-    # TODO: change to global CI detection
+    # @todo change to global CI detection
     @gitlab = false
 
     def timestamp
@@ -31,7 +34,8 @@ class Debuild
       @settings['aptly']['api_url']
     end
 
-    def apt_sources(distribution)
+    def apt_sources
+      distribution = Debuild::Settings.instance.distribution
       [
         "deb [arch=amd64] #{@settings['aptly']['repo_url']}/#{@settings['aptly']['repo']}-#{distribution} #{distribution} main"
       ]
@@ -75,14 +79,30 @@ class Debuild
     end
   end
 
+  def test(package_name:, skip_available_packages: false, command: nil)
+    available_packages = packages
+
+    puts "DEBUG: #{package_name}"
+    puts "DEBUG: #{available_packages.include? package_name}"
+
+    unless skip_available_packages || available_packages.include?(package_name)
+      puts "Unknown package #{package_name}, use one of these: #{available_packages.sort}"
+      exit 1
+    end
+
+    # @todo fix prefix
+    prefix = ''
+    package_name = "#{prefix}#{package_name}"
+
+    test_deb package_name: package_name, command: command
+  end
+
   @config = nil
-  @use_release_config = false
 
   require_relative 'devel'
   require_relative 'release'
   def read_settings(*args, **kwargs)
-
-    @config = (@use_release_config ? ReleaseConfig : DevelConfig).new(*args, **kwargs)
+    @config = (settings.release ? ReleaseConfig : DevelConfig).new(*args, **kwargs)
     @aptly = Aptly.new @config.aptly_api_url
   end
 end

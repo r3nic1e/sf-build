@@ -52,25 +52,26 @@ def get_args
     release: false,
     skip_push: false,
     skip_pull: false,
-    distributions: get_distributions,
+    distributions: [],
     username: nil,
   }
+  # @type [Debuild::Settings]
+  settings = Debuild::Settings.instance
+
   OptionParser.new do |parser|
-    parser.on '--[no-]release', 'Generate release images' do |v|
+    parser.on '--release', 'Generate release images' do |v|
       options[:release] = v
+      settings.release = true
     end
-    parser.on '--[no-]skip-push', 'Skip pushing release images to registry' do |v|
+    parser.on '--skip-push', 'Skip pushing release images to registry' do |v|
       options[:skip_push] = v
     end
-    parser.on '--[no-]skip-pull', 'Skip pulling release images from registry' do |v|
+    parser.on '--skip-pull', 'Skip pulling release images from registry' do |v|
       options[:skip_pull] = v
     end
-    parser.on '-dNAME', '--distribution=NAME', 'Generate images only for the following distributions', get_distributions do |v|
-      if options[:distributions] == get_distributions
-        options[:distributions] = [v]
-      else
-        options[:distributions] << v
-      end
+    parser.on '-dNAME', '--distribution=NAME', 'Generate images only for the following distributions',
+              get_distributions do |v|
+      options[:distributions] << v
     end
     parser.on '-uNAME', '--username=NAME', 'Set username for repo creation' do |v|
       options[:username] = v
@@ -80,12 +81,12 @@ def get_args
       exit
     end
   end.parse! ARGV
+  options[:distributions] = get_distributions if options[:distributions].empty?
   options
 end
 
 # @param [String] username
-# @param [Boolean] use_release_images
-def create_devel_config(username: nil, use_release_images: false)
+def create_devel_config(username: nil)
   base_config = {
     aptly: {
       repo: 'dev-',
@@ -96,7 +97,7 @@ def create_devel_config(username: nil, use_release_images: false)
     image: {}
   }
 
-  base_config[:image][:name] = 'sf-build' unless use_release_images
+  base_config[:image][:name] = 'sf-build' unless Debuild::Settings.instance.use_release_images
 
   unless username
     username = Etc.getlogin
@@ -119,11 +120,12 @@ def create_devel_config(username: nil, use_release_images: false)
 end
 
 # @param [Debuild] debuild
-# @param [String] distribution
 # @param [Array] templates
 # @param [Array] dockerfiles
 # @return [Array]
-def build_images(debuild:, distribution:, templates:, dockerfiles:)
+# @todo move to Debuild
+def build_images(debuild:, templates:, dockerfiles:)
+  distribution = debuild.settings.distribution
   templates_path = File.join ROOT_PATH, 'docker', 'templates'
   distribution_path = File.join ROOT_PATH, 'docker', 'distributions', distribution
 
@@ -191,17 +193,17 @@ def build_images(debuild:, distribution:, templates:, dockerfiles:)
 end
 
 # @param [Debuild] debuild
-# @param [String] distribution
 # @param [String] repo
-def build_dummy_package(debuild:, distribution:, repo:)
+# @todo move to Debuild
+def build_dummy_package(debuild:, repo:)
   aptly = Aptly.new debuild.config.aptly_api_url
   packages = aptly.repo_search_package repo: repo
 
   puts "DEBUG: repo #{repo} has #{packages.length} packages"
 
   unless packages.empty?
-    debuild.publish_repo repo: repo, distribution: distribution
-    debuild.update_repo repo: repo, distribution: distribution
+    debuild.publish_repo repo: repo
+    debuild.update_repo repo: repo
     return
   end
 
@@ -209,15 +211,9 @@ def build_dummy_package(debuild:, distribution:, repo:)
 
   debuild.skip_depends_image = true
 
-  debuild.main(
-    package: 'dummy',
-    distribution: distribution,
-    verbose: false,
-    skip_apt_update: true
-  )
-
-  debuild.publish_repo repo: repo, distribution: distribution
-  debuild.update_repo repo: repo, distribution: distribution
+  debuild.main package: 'dummy'
+  debuild.publish_repo repo: repo
+  debuild.update_repo repo: repo
 
   puts 'Finished'
 end
@@ -226,30 +222,19 @@ end
 # @param [Array] distributions
 # @param [String] username
 # @param [Boolean] from_scratch
+# @todo move to Debuild
 def build_devel_images(debuild:, distributions:, username: nil, from_scratch: false)
   create_devel_config username: username
 
   debuild.read_settings image_suffix: nil
 
   distributions.each do |distribution|
-    repo = debuild.create_repo prefix: debuild.config.aptly_repo, distribution: distribution
-    debuild.publish_repo repo: repo, distribution: distribution
+    debuild.settings.distribution = distribution
 
-    apt_sources = []
+    repo = debuild.create_repo
+    debuild.publish_repo repo: repo
 
-    # release apt repo
-    apt_sources << {
-      repo: "#{debuild.config.aptly_repo(release: true)}-#{distribution}",
-      distribution: distribution,
-      repo_url: debuild.config.aptly_repo_url(release: true)
-    }
-
-    # devel apt repo
-    apt_sources << {
-      repo: repo,
-      distribution: distribution,
-      repo_url: debuild.config.aptly_repo_url
-    }
+    apt_sources = debuild.config.apt_sources
 
     apt_sources_context = {
       apt_sources: apt_sources
@@ -288,7 +273,6 @@ def build_devel_images(debuild:, distributions:, username: nil, from_scratch: fa
 
     build_images(
       debuild: debuild,
-      distribution: distribution,
       templates: templates,
       dockerfiles: dockerfiles
     )
@@ -299,7 +283,6 @@ def build_devel_images(debuild:, distributions:, username: nil, from_scratch: fa
 
     build_dummy_package(
       debuild: debuild,
-      distribution: distribution,
       repo: repo
     )
 
@@ -313,21 +296,17 @@ end
 # @param [Debuild] debuild
 # @param [Array] distributions
 # @param [Boolean] push
+# @todo move to Debuild
 def build_release_images(debuild:, distributions:, push: false)
   debuild.read_settings
 
   distributions.each do |distribution|
-    repo = debuild.create_repo prefix: debuild.config.aptly_repo, distribution: distribution
-    debuild.publish_repo repo: repo, distribution: distribution
+    debuild.settings.distribution = distribution
 
-    apt_sources = []
+    repo = debuild.create_repo
+    debuild.publish_repo repo: repo
 
-    # release apt repo
-    apt_sources << {
-      repo: repo,
-      distribution: distribution,
-      repo_url: debuild.config.aptly_repo_url
-    }
+    apt_sources = debuild.config.apt_sources
 
     apt_sources_context = {
       apt_sources: apt_sources
@@ -355,7 +334,6 @@ def build_release_images(debuild:, distributions:, push: false)
 
     images = build_images(
       debuild: debuild,
-      distribution: distribution,
       templates: templates,
       dockerfiles: dockerfiles
     )
@@ -364,7 +342,6 @@ def build_release_images(debuild:, distributions:, push: false)
 
     build_dummy_package(
       debuild: debuild,
-      distribution: distribution,
       repo: repo
     )
   end
@@ -372,6 +349,7 @@ end
 
 # @param [Debuild] debuild
 # @param [Array] distributions
+# @todo move to Debuild
 def pull_release_images(debuild:, distributions:)
   debuild.read_settings skip_devel: true
 
@@ -382,6 +360,7 @@ def pull_release_images(debuild:, distributions:)
 end
 
 # @param [Debuild] debuild
+# @todo move to Debuild
 def remove_depends_images(debuild:)
   puts 'Removing depends images:'
 
@@ -396,7 +375,7 @@ def remove_depends_images(debuild:)
       next unless repo.start_with?(debuild.config.image_name) && (repo['-depends-'] || repo['-inspect-'])
       containers.each do |container|
         container_image = container.info['Image']
-        next unless (container_image == repotag) || (container_image == image.info['Id'])
+        next unless [image.info['Id'], repotag].include? container_image
 
         puts "- removing container #{container.id}"
         container.remove(force: true)
@@ -411,6 +390,7 @@ end
 def main
   args = get_args
   if args[:release]
+    # @todo use detect_ci
     if ENV['CI_BUILD_REF_NAME']
       raise "Current CI ref is not master (#{ENV['CI_BUILD_REF_NAME']})" unless ENV['CI_BUILD_REF_NAME'] == 'master'
 
@@ -420,10 +400,11 @@ def main
         exit
       end
     else
+      # @todo uncomment
       #check_git_master_branch
     end
 
-    debuild = Debuild.new release: true
+    debuild = Debuild.new
 
     build_release_images debuild: debuild, distributions: args[:distributions], push: !args[:skip_push]
   else
@@ -432,7 +413,8 @@ def main
     pull_release_images debuild: debuild, distributions: args[:distributions] unless args[:skip_pull]
     pull_busybox_image
 
-    build_devel_images debuild: debuild, distributions: args[:distributions], username: args[:username], from_scratch: args[:skip_pull]
+    build_devel_images debuild: debuild, distributions: args[:distributions], username: args[:username],
+                       from_scratch: args[:skip_pull]
   end
 
   remove_depends_images debuild: debuild

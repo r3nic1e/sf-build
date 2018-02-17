@@ -38,7 +38,7 @@ class SFPackage
 
     package_versions.each do |item|
       tokens = item.split
-      # TODO: fix prefix
+      # @todo fix prefix
       prefix = ''
       version = if tokens.length == 1
                   tokens[0]
@@ -78,7 +78,7 @@ class SFPackage
     return unless @recipe.key? 'build_depends'
     @recipe['build_depends'].each do |item|
       name = item.split('=')[0]
-      # TODO: fix prefix
+      # @todo fix prefix
       prefix = ''
       next unless name.start_with? prefix
 
@@ -132,7 +132,7 @@ class PackageRepository
 
   # @param [SFPackage] package
   def search_package_uploads(package)
-    # TODO: fix prefix
+    # @todo fix prefix
     prefix = ''
     apt_command = "apt-cache show #{prefix}#{package.name}".split
 
@@ -202,7 +202,7 @@ class PackageRepository
 
     inspect_environment = {
       SKIP_UPDATE: 0,
-      APT_SOURCES: @debuild_module.config.apt_sources(@distribution).join("\n")
+      APT_SOURCES: @debuild_module.config.apt_sources.join("\n")
     }
 
     inspect_container = create_docker_container(
@@ -345,15 +345,14 @@ class PackageQueue
 end
 
 # @param [Array] packages
-# @param [String] distribution
 # @param [Debuild] debuild
-# @param [Boolean] force_build
 # @return [Array]
-def make_build_queue(packages, distribution, debuild, force_build: false)
-  package_repository = PackageRepository.new distribution, debuild
+def make_build_queue(packages, debuild)
+  return packages if debuild.settings.skip_package_inspect
+  package_repository = PackageRepository.new debuild.settings.distribution, debuild
   package_queue = PackageQueue.new package_repository
 
-  package_queue.make packages, force_build: force_build
+  package_queue.make packages, force_build: debuild.settings.force_package_build
   package_repository.cleanup_containers
 
   puts 'DEBUG: final queue'

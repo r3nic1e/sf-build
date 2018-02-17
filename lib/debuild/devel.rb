@@ -1,4 +1,5 @@
 require 'yaml'
+require_relative 'build'
 require_relative 'config'
 require_relative 'repository'
 
@@ -31,7 +32,7 @@ end
 
 class Debuild
   class DevelConfig < Config
-    def initialize(image_suffix: '-devel', skip_devel: false, use_release_images: false)
+    def initialize(image_suffix: '-devel', skip_devel: false)
       release_settings = YAML.load_file 'release.yml'
 
       begin
@@ -54,53 +55,9 @@ class Debuild
 
       @settings = settings
       @release_settings = release_settings
-      @use_release_images = use_release_images
+      @use_release_images = Debuild::Settings.instance.use_release_images
 
       @aptly = Aptly.new aptly_api_url
-    end
-
-    def test(package_name:, distribution:, verbose: false, skip_available_packages: false, command: nil)
-      read_settings image_suffix: '-test'
-
-      available_packages = packages
-
-      puts "DEBUG: #{package_name}"
-      puts "DEBUG: #{available_packages.include? package_name}"
-
-      unless skip_available_packages || available_packages.include?(package_name)
-        puts "Unknown package #{package_name}, use one of these: #{available_packages.sort}"
-        exit 1
-      end
-
-      # TODO: fix prefix
-      prefix = ''
-      package_name = "#{prefix}#{package_name}"
-
-      test_deb package_name: package_name, distribution: distribution, verbose: verbose, command: command
-    end
-
-    def update_aptly(distribution:, skip_upload: false)
-      puts "Distribution: #{distribution}"
-      puts 'DEBUG: @config.settings'
-      pp @config.settings
-
-      deb_path = File.join output, distribution
-      deb_abs_path = File.absolute_path deb_path
-
-      repo = "#{aptly_repo}-#{distribution}"
-
-      begin
-        result = @aptly.repo_create name: repo, default_distribution: distribution
-        puts "Repo #{repo} created"
-        puts result
-      rescue Aptly::ExistsError
-        puts "Repo #{repo} already exists"
-      end
-
-      upload_deb directory: deb_abs_path, repo: repo unless skip_upload
-      update_repo repo: repo, distribution: distribution
-
-      puts 'Done'
     end
 
     def image_name(release: false)
@@ -111,7 +68,8 @@ class Debuild
       end
     end
 
-    def apt_sources(distribution)
+    def apt_sources
+      distribution = Debuild::Settings.instance.distribution
       [
         "deb [arch=amd64] #{@release_settings['aptly']['repo_url']}/#{@release_settings['aptly']['repo']}-#{distribution} #{distribution} main",
         "deb [arch=amd64] #{@settings['aptly']['repo_url']}/#{@settings['aptly']['repo']}-#{distribution} #{distribution} main"

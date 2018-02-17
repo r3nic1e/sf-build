@@ -5,7 +5,7 @@ class Debuild
     deb_files = []
     Dir.open(directory).each do |f|
       path = File.join directory, f
-      next unless File.file? path and File.extname(path) == '.deb' and not f.start_with? 'dummy'
+      next unless File.file?(path) && (File.extname(path) == '.deb') && (!f.start_with? 'dummy')
       deb_files << path
     end
 
@@ -17,13 +17,12 @@ class Debuild
     @aptly.repo_add_packages_from_dir name: repo, dir: repo, force_replace: config.settings['aptly']['force_replace']
   end
 
-  # @param [String] distribution
   # @return [String]
-  def create_repo(prefix:, distribution:)
-    repo = "#{prefix}-#{distribution}"
+  def create_repo
+    repo = "#{@config.aptly_repo}-#{settings.distribution}"
 
     begin
-      result = @aptly.repo_create name: repo, default_distribution: distribution
+      result = @aptly.repo_create name: repo, default_distribution: settings.distribution
       puts "Repo #{repo} created: #{result}"
     rescue Aptly::ExistsError
       puts "Repo #{repo} already exists"
@@ -32,25 +31,21 @@ class Debuild
     repo
   end
 
-  # @param [String] distribution
-  def publish_repo(repo:, distribution:)
-    begin
-      result = @aptly.publish_create(
-          source_kind: 'local', sources: [{'Component': 'main', 'Name': repo}],
-          prefix: repo, distribution: distribution,
-          signing: @config.signing
-      )
-      puts "Repo #{repo} published with prefix #{repo}: #{result}"
-    rescue Aptly::ExistsError
-      puts "Repo #{repo} already published"
-    end
+  def publish_repo(repo:)
+    result = @aptly.publish_create(
+      source_kind: 'local', sources: [{ 'Component' => 'main', 'Name' => repo }],
+      prefix: repo, distribution: settings.distribution,
+      signing: @config.signing
+    )
+    puts "Repo #{repo} published with prefix #{repo}: #{result}"
+  rescue Aptly::ExistsError
+    puts "Repo #{repo} already published"
   end
 
   # @param [String] repo
-  # @param [String] distribution
-  def update_repo(repo:, distribution:)
-    puts "DEBUG: updating aptly publish for repo #{repo} with distribution #{distribution}"
-    result = @aptly.publish_update prefix: repo, distribution: distribution, force_overwrite: true, signing: @config.signing
+  def update_repo(repo:)
+    puts "DEBUG: updating aptly publish for repo #{repo} with distribution #{settings.distribution}"
+    result = @aptly.publish_update prefix: repo, distribution: settings.distribution, force_overwrite: true, signing: @config.signing
     puts "DEBUG: #{result}"
   end
 end

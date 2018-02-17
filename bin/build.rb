@@ -10,60 +10,48 @@ require 'git_helper'
 
 # @return [Hash]
 def parse_args
-  options = {
-    distribution: 'precise',
-    verbose: false,
-    skip_apt_update: false,
-    skip_package_build: false,
-    skip_package_upload: false,
-    skip_package_inspect: false,
-    use_existing_depends_image: false,
-    force_package_build: false,
-    command: nil,
-    release: false,
-    use_release_images: false
-  }
+  settings = Debuild::Settings.instance
+
   OptionParser.new do |parser|
     parser.on '-d', '--distribution', %w[natty precise trusty xenial], 'Ubuntu distribution to build for', :REQUIRED do |v|
-      options[:distribution] = v
+      settings.distribution = v
     end
-    parser.on '-v', '--[no-]verbose', 'Show build logs' do |v|
-      options[:verbose] = v
+    parser.on '-v', '--verbose', 'Show build logs' do |v|
+      settings.verbose = true
     end
-    parser.on '--[no-]skip-apt-update', "Skip 'apt-get update' before build" do |v|
-      options[:skip_apt_update] = v
+    parser.on '--skip-apt-update', "Skip 'apt-get update' before build" do |v|
+      settings.skip_apt_update = true
     end
-    parser.on '--[no-]skip-package-build', 'Skip build, only upload package' do |v|
-      options[:skip_package_build] = v
+    parser.on '--skip-package-build', 'Skip build, only upload package' do |v|
+      settings.skip_package_build = true
     end
-    parser.on '--[no-]skip-package-upload', 'Skip upload, only build package' do |v|
-      options[:skip_package_upload] = v
+    parser.on '--skip-package-upload', 'Skip upload, only build package' do |v|
+      settings.skip_package_upload = true
     end
-    parser.on '--[no-]force-package-build', 'Force package build if already uploaded' do |v|
-      options[:force_package_build] = v
+    parser.on '--force-package-build', 'Force package build if already uploaded' do |v|
+      settings.force_package_build = true
     end
-    parser.on '--[no-]skip-package-inspect', 'Skip package inspection, ignore build dependencies' do |v|
-      options[:skip_package_inspect] = v
+    parser.on '--skip-package-inspect', 'Skip package inspection, ignore build dependencies' do |v|
+      settings.skip_package_inspect = true
     end
-    parser.on '--[no-]use-existing-depends-image', 'Use existing build depends image' do |v|
-      options[:use_existing_depends_image] = v
+    parser.on '--use-existing-depends-image', 'Use existing build depends image' do |v|
+      settings.use_existing_depends_image = true
     end
-    parser.on '--[no-]release', 'Build and push packages to production' do |v|
-      options[:release] = v
+    parser.on '--release', 'Build and push packages to production' do |v|
+      settings.release = true
     end
-    parser.on '--[no-]use-release-images', 'Use release images for devel build' do |v|
-      options[:use_release_images] = v
+    parser.on '--use-release-images', 'Use release images for devel build' do |v|
+      settings.use_release_images = true
     end
-    parser.on '--command=NAME', 'Override command running in container' do |v|
-      options[:command] = v
+    parser.on '--command=COMMAND', 'Override command running in container' do |v|
+      settings.command = v
     end
     parser.on '-h', '--help' do
       puts parser
       exit
     end
   end.parse! ARGV
-  options[:packages] = ARGV.dup
-  options
+  ARGV.dup
 end
 
 def check_git_master_branch
@@ -113,96 +101,56 @@ def get_git_packages
 end
 
 def main
-  args = parse_args
-  if ENV['CI_BUILD_REF_NAME']
-    build_gitlab_ci args
-  elsif args[:release]
-    build_release args
+  packages = parse_args
+  if detect_ci
+    build_ci
+  elsif Debuild::Settings.instance.release
+    build_release packages
   else
-    build_devel args
+    build_devel packages
   end
 end
 
-# @param [Hash] args
-def build_release(args)
+# @param [Array] packages
+def build_release(packages)
   puts 'Running in RELEASE mode (manual)'
 
+  # @todo uncomment
   # check_git_master_branch
 
-  debuild = Debuild.new release: true
+  debuild = Debuild.new
   debuild.read_settings
+  debuild.pull_build_images
 
-  pull_build_images debuild: debuild, distribution: args[:distribution]
+  puts "Building packages for distribution: #{debuild.settings.distribution}"
 
-  puts "Building packages for distribution: #{args[:distribution]}"
-
-  build_queue = if args[:skip_package_inspect]
-                  args[:packages]
-                else
-                  make_build_queue(args[:packages], args[:distribution], debuild, force_build: args[:force_package_build])
-                end
-
-  build_queue.each do |package|
+  make_build_queue(packages, debuild).each do |package|
     puts "Start release build for package #{package}"
-    debuild.main(
-      package: package,
-      distribution: args[:distribution],
-      verbose: args[:verbose],
-      skip_apt_update: args[:skip_apt_update],
-      skip_build: args[:skip_package_build],
-      skip_upload: args[:skip_package_upload],
-      command: args[:command],
-      use_existing_depends_image: args[:use_existing_depends_image]
-    )
+    debuild.main package: package
   end
 end
 
-# @param [Debuild] debuild
-# @param [String] distribution
-def pull_build_images(debuild:, distribution:)
-  image_name = debuild.config.image_name
-  image_repotag = "#{image_name}:#{distribution}"
-
-  puts "Pulling build image: #{image_repotag}"
-  Docker::Image.create 'fromImage' => image_repotag
-
-  puts 'Pulling busybox image'
-  pull_busybox_image
-end
-
-# @param [Hash] args
-def build_devel(args)
+# @param [Array] packages
+def build_devel(packages)
   puts 'Running in DEVEL mode'
 
-  debuild = Debuild.new release: false, use_release_images: args[:use_release_images]
+  debuild = Debuild.new
   debuild.read_settings
 
-  build_queue = if args[:skip_package_inspect]
-                  args[:packages]
-                else
-                  make_build_queue(args[:packages], args[:distribution], debuild, force_build: args[:force_package_build])
-                end
-
-  build_queue.each do |package|
-    debuild.main(
-      package: package,
-      distribution: args[:distribution],
-      verbose: args[:verbose],
-      skip_apt_update: args[:skip_apt_update],
-      skip_build: args[:skip_package_build],
-      skip_upload: args[:skip_package_upload],
-      command: args[:command],
-      use_existing_depends_image: args[:use_existing_depends_image]
-    )
+  make_build_queue(packages, debuild).each do |package|
+    debuild.main package: package
   end
 end
 
-# @param [Hash] args
-def build_gitlab_ci(args)
+def detect_ci
+  ENV.key? 'CI_BUILD_REF_NAME'
+end
+
+def build_ci
   puts 'Running in CI mode'
 
-  release = ENV['CI_BUILD_REF_NAME'] == 'master'
-  debuild = Debuild.new release: release, use_release_images: args[:use_release_images]
+  Debuild::Settings.instance.release = ENV['CI_BUILD_REF_NAME'] == 'master'
+  debuild = Debuild.new
   debuild.read_settings
 
   packages = get_git_packages
@@ -214,20 +162,12 @@ def build_gitlab_ci(args)
   puts 'Got changed packages to build:'
   pp packages
 
-  pull_build_images debuild: debuild, distribution: args[:distribution]
+  debuild.pull_build_images
 
-  puts "Building packages for distribution #{args[:distribution]}"
-  make_build_queue(packages, args[:distribution], debuild).each do |package|
+  puts "Building packages for distribution #{debuild.settings.distribution}"
+  make_build_queue(packages, debuild).each do |package|
     puts "Start release build for package #{package.name}"
-    debuild.main(
-      package: package,
-      distribution: args[:distribution],
-      verbose: args[:verbose],
-      skip_apt_update: args[:skip_apt_update],
-      skip_build: args[:skip_package_build],
-      skip_upload: args[:skip_package_upload],
-      command: args[:command]
-    )
+    debuild.main package: package
   end
 
   puts 'End of CI mode'

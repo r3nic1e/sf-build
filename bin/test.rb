@@ -10,21 +10,28 @@ def get_args
     distribution: 'precise',
     verbose: false
   }
+  settings = Debuild::Settings.instance
+
   OptionParser.new do |parser|
     parser.on '-d', '--distribution', %w[precise trusty xenial], 'Ubuntu distribution to build for', :REQUIRED do |v|
       options[:distribution] = v
+      settings.distribution = v
     end
     parser.on '-v', '--[no-]verbose', 'Show build logs' do |v|
       options[:verbose] = v
+      settings.verbose = true
     end
-    parser.on '--[no-]skip-available-packages', 'Skip available packages check' do |v|
+    parser.on '--skip-available-packages', 'Skip available packages check' do |v|
       options[:skip_available_packages] = v
+      settings.skip_available_packages = true
     end
-    parser.on '--[no-]use-release-images', 'Use release images for test' do |v|
+    parser.on '--use-release-images', 'Use release images for test' do |v|
       options[:use_release_images] = v
+      settings.use_release_images = true
     end
-    parser.on '-c', '--command=NAME', 'Additional command to run in test container' do |v|
+    parser.on '-c', '--command=COMMAND', 'Additional command to run in test container' do |v|
       options[:command] = v
+      settings.command = v
     end
     parser.on '-h', '--help' do
       puts parser
@@ -43,13 +50,11 @@ end
 def main
   args = get_args
 
-  debuild = Debuild.new release: false, use_release_images: args[:use_release_images]
-  debuild.read_settings
+  debuild = Debuild.new
+  debuild.read_settings image_suffix: '-test'
 
   debuild.test(
     package_name: args[:package],
-    distribution: args[:distribution],
-    verbose: args[:verbose],
     command: args[:command],
     skip_available_packages: args[:skip_available_packages]
   )

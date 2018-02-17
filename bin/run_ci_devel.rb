@@ -1,7 +1,9 @@
 #!/usr/bin/env ruby
 $LOAD_PATH.unshift File.expand_path('../../lib', __FILE__)
 
+require_relative 'build'
 require_relative 'generate_images'
+require 'debuild'
 
 def main
   ref_name = ENV['CI_BUILD_REF_NAME']
@@ -22,9 +24,15 @@ def main
   username = ref_tokens[1]
   distribution = ref_tokens[2]
 
-  create_devel_config username: username, use_release_images: true
+  create_devel_config username: username
 
-  exec('ruby', 'bin/build.rb', "--distribution=#{distribution}", '--use-release-images', '--verbose')
+  # @type [Debuild::Settings]
+  settings = Debuild::Settings.instance
+  settings.use_release_images = true
+  settings.distribution = distribution
+  settings.verbose = true
+
+  build_ci
 end
 
 if $PROGRAM_NAME == __FILE__

@@ -13,38 +13,37 @@ def parse_args
     distribution: 'precise',
     verbose: false
   }
+  # @type [Debuild::Settings]
+  settings = Debuild::Settings.instance
+
   OptionParser.new do |parser|
     parser.on '-d', '--distribution', %w[precise trusty xenial], 'Ubuntu distribution to build for', :REQUIRED do |v|
       options[:distribution] = v
+      settings.distribution = v
     end
     parser.on '-v', '--[no-]verbose', 'Show build logs' do |v|
       options[:verbose] = v
+      settings.verbose = true
     end
     parser.on '-h', '--help' do
       puts parser
       exit
     end
   end.parse! ARGV
-  options[:packages] = ARGV.dup
-  options
+  ARGV.dup
 end
 
 def main
-  args = parse_args
+  packages = parse_args
+  packages = debuild.config.packages if packages.empty?
 
   debuild = Debuild.new
   debuild.read_settings
 
-  packages = if args[:packages].empty?
-               debuild.config.packages
-             else
-               args[:packages]
-             end
-
   puts "DEBUG: got #{packages.length} packages to inspect:"
   pp packages
 
-  build_queue = make_build_queue packages, args[:distribution], debuild
+  build_queue = make_build_queue packages, debuild
 
   puts "Found #{build_queue.length} packages to build:"
   pp build_queue.collect(&:name)

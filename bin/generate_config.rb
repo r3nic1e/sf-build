@@ -13,7 +13,7 @@ def get_args
     parser.on '-uNAME', '--username=NAME' do |v|
       options[:username] = v
     end
-    parser.on '--[no-]use-release-images' do |v|
+    parser.on '--use-release-images' do |v|
       options[:use_release_images] = v
     end
   end.parse! ARGV

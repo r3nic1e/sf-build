@@ -1,21 +1,36 @@
+require 'singleton'
 require 'fileutils'
 require 'docker'
 require_relative '../docker_helper'
 require_relative 'config'
 
 class Debuild
+  class Settings
+    include Singleton
+    attr_accessor :distribution, :skip_apt_update, :skip_package_build, :skip_package_upload, :skip_package_inspect,
+                  :use_existing_depends_image, :force_package_build, :command, :release, :use_release_images, :verbose,
+                  :skip_available_packages
+
+    def initialize
+      @distribution = 'precise'
+    end
+  end
+
   attr_accessor :skip_depends_image
 
-  def initialize(release: false, use_release_images: false, skip_depends_image: false)
+  # @return [Settings]
+  def settings
+    Settings.instance
+  end
+
+  def initialize(skip_depends_image: false)
     docker_login
 
-    @use_release_config = release
-    @use_release_images = use_release_images
     @skip_depends_image = skip_depends_image
   end
 
-  def clean_deb(distribution:)
-    deb_path = File.join @config.output, distribution
+  def clean_deb
+    deb_path = File.join @config.output, settings.distribution
 
     FileUtils.mkdir_p deb_path unless File.directory? deb_path
 
@@ -32,11 +47,8 @@ class Debuild
     end
   end
 
-  def build_deb(package:, distribution:, **args)
-    verbose = args[:verbose]
-    skip_apt_update = args[:skip_apt_update]
-    command = args[:command]
-    use_existing_depends_image = args[:use_existing_depends_image]
+  def build_deb(package:)
+    skip_apt_update = settings.skip_apt_update
     package_name = if package.is_a? SFPackage
                      package.name
                    else
@@ -44,7 +56,7 @@ class Debuild
                    end
 
     image_name = @config.image_name
-    image_tag = distribution
+    image_tag = settings.distribution
     image_repotag = "#{image_name}:#{image_tag}"
 
     check_build_images image_repotag: image_tag
@@ -56,13 +68,10 @@ class Debuild
       install_build_depends = true
     else
       build_image_repotag = create_depends_image(
-        command: command,
         image_repotag: image_repotag,
         image_tag: image_tag,
         package: package,
         skip_apt_update: skip_apt_update,
-        verbose: verbose,
-        use_existing_image: use_existing_depends_image
       )
       # avoid double apt-update runs
       skip_apt_update = true
@@ -70,7 +79,6 @@ class Debuild
     end
 
     build_container, build_container_name, command = create_build_container(
-      command: command,
       data_container: data_container,
       image_repotag: build_image_repotag,
       image_tag: image_tag,
@@ -85,10 +93,9 @@ class Debuild
       build_container: build_container,
       build_container_name: build_container_name,
       command: command,
-      verbose: verbose
     )
 
-    extract_deb_files(build_container: build_container, distribution: distribution)
+    extract_deb_files(build_container: build_container)
 
     puts "Removing build container #{build_container_name}"
     build_container.remove
@@ -96,21 +103,21 @@ class Debuild
     puts 'BUILD FINISHED'
   end
 
-  def run_build(build_container:, build_container_name:, command:, verbose: false)
+  def run_build(build_container:, build_container_name:, command:)
     puts "DEBUG: will run the following command in build container #{build_container_name}"
     puts "DEBUG: #{command}"
 
     puts "Starting build container #{build_container_name}"
     build_container.start
 
-    build_container.attach(tty: true) { |chunk| print chunk } if verbose
+    build_container.attach(tty: true) { |chunk| print chunk } if settings.verbose
 
     puts "Waiting build container #{build_container_name} to exit"
     return_code = build_container.wait['StatusCode']
     return if return_code.zero?
 
     puts "Return code #{return_code}, not removing build container #{build_container_name}"
-    unless verbose
+    unless settings.verbose
       puts 'See logs below:'
       puts build_container.logs(stdout: true, stderr: true)
     end
@@ -130,8 +137,8 @@ class Debuild
     raise RuntimeError("Build image #{image_repotag} not found") unless valid_images
   end
 
-  def extract_deb_files(build_container:, distribution:)
-    deb_path = File.join @config.output, distribution
+  def extract_deb_files(build_container:)
+    deb_path = File.join @config.output, settings.distribution
     dummy_file = StringIO.new
     build_container.archive_out '/deb' do |stream|
       dummy_file.write stream
@@ -192,7 +199,6 @@ class Debuild
   end
 
   def create_build_container(data_container:, image_repotag:, image_tag:, package_name:, **args)
-    command = args[:command]
     skip_apt_update = args[:skip_apt_update]
     install_build_depends = args[:install_build_depends]
 
@@ -205,15 +211,11 @@ class Debuild
     puts 'DEBUG: default command to run in build container'
     puts "DEBUG: #{default_command}"
 
-    command = if command.nil?
-                default_command
-              else
-                ['bash', '-c', command]
-              end
+    command = settings.command.nil? ? default_command : ['bash', '-c', settings.command]
 
     build_environment = {
       SKIP_UPDATE: (skip_apt_update ? 1 : 0),
-      APT_SOURCES: @config.apt_sources(image_tag).join("\n"),
+      APT_SOURCES: @config.apt_sources.join("\n"),
       PACKAGE_DIR: File.join('/recipes', package_name)
     }
 
@@ -232,11 +234,7 @@ class Debuild
     [build_container, build_container_name, command]
   end
 
-  def create_depends_image(image_repotag:, image_tag:, package:, **args)
-    command = args[:command]
-    skip_apt_update = args[:skip_apt_update]
-    verbose = args[:verbose]
-    use_existing_image = args[:use_existing_image]
+  def create_depends_image(image_repotag:, image_tag:, package:, skip_apt_update:)
     image_name = image_repotag.split(':')[0]
     package_name = if package.is_a? SFPackage
                      package.name
@@ -252,7 +250,7 @@ class Debuild
     depends_image_name = "#{image_name}-depends-#{depends_cache_key}"
     depends_image_repotag = "#{depends_image_name}:#{image_tag}"
 
-    if use_existing_image
+    if settings.use_existing_depends_image
       found = false
       Docker::Image.all.each do |image|
         repotags = image.info['RepoTags']
@@ -296,7 +294,7 @@ class Debuild
 
     depends_environment = {
       SKIP_UPDATE: (skip_apt_update ? 1 : 0),
-      APT_SOURCES: @config.apt_sources(image_tag).join("\n"),
+      APT_SOURCES: @config.apt_sources.join("\n"),
       PACKAGE_DIR: File.join('/recipes', package_name)
     }
 
@@ -314,7 +312,7 @@ class Debuild
     puts "Starting depends container #{depends_container_name}"
     depends_container.start
 
-    depends_container.attach(tty: true) { |chunk| print chunk } if verbose
+    depends_container.attach(tty: true) { |chunk| print chunk } if settings.verbose
 
     puts "Waiting depends container #{depends_container_name} to exit"
     return_code = depends_container.wait['StatusCode']
@@ -354,9 +352,9 @@ class Debuild
     data_container
   end
 
-  def test_deb(package_name:, distribution:, verbose: false, command: nil)
+  def test_deb(package_name:, command: nil)
     image_name = @config.image_name
-    image_tag = distribution
+    image_tag = settings.distribution
     image_repotag = "#{image_name}:#{image_tag}"
 
     valid_images = Docker::Image.all.select do |image|
@@ -388,7 +386,7 @@ class Debuild
 
     test_environment = {
       SKIP_UPDATE: 0,
-      APT_SOURCES: @config.apt_sources(image_tag).join("\n")
+      APT_SOURCES: @config.apt_sources.join("\n")
     }
 
     test_container = create_docker_container(
@@ -414,7 +412,7 @@ class Debuild
     return_code = test_container.wait['StatusCode']
     if return_code != 0
       puts "Return code #{return_code}, not removing test container"
-      unless verbose
+      unless settings.verbose
         puts 'See logs below:'
         puts test_container.logs(stdout: true, stderr: true)
       end
@@ -426,13 +424,7 @@ class Debuild
     test_container.remove
   end
 
-  def main(package:, distribution:, **args)
-    verbose = args[:verbose]
-    skip_apt_update = args[:skip_apt_update]
-    skip_build = args[:skip_build]
-    skip_upload = args[:skip_upload]
-    command = args[:command]
-    use_existing_depends_image = args[:use_existing_depends_image]
+  def main(package:)
     package_name = if package.is_a? SFPackage
                      package.name
                    else
@@ -440,7 +432,7 @@ class Debuild
                    end
 
     @config.update_timestamp
-    clean_deb distribution: distribution
+    clean_deb
     available_packages = @config.packages
 
     unless available_packages.include? package_name
@@ -448,16 +440,16 @@ class Debuild
       exit 1
     end
 
-    unless skip_build
-      clean_deb distribution: distribution
-      build_deb package: package, distribution: distribution, verbose: verbose, skip_apt_update: skip_apt_update,
-                command: command, use_existing_depends_image: use_existing_depends_image
+    unless settings.skip_package_build
+      clean_deb
+      build_deb package: package
     end
 
-    update_aptly distribution: distribution unless skip_upload
+    update_aptly
   end
 
-  def update_aptly(distribution:, skip_upload: false)
+  def update_aptly
+    distribution = settings.distribution
     puts "Distribution: #{distribution}"
     puts 'DEBUG: @config.settings'
     pp @config.settings
@@ -475,10 +467,20 @@ class Debuild
       puts "Repo #{repo} already exists"
     end
 
-    upload_deb directory: deb_abs_path, repo: repo unless skip_upload
-    update_repo repo: repo, distribution: distribution
+    upload_deb directory: deb_abs_path, repo: repo unless settings.skip_package_upload
+    update_repo repo: repo
 
     puts 'Done'
   end
 
+  def pull_build_images
+    image_name = @config.image_name
+    image_repotag = "#{image_name}:#{settings.distribution}"
+
+    puts "Pulling build image: #{image_repotag}"
+    Docker::Image.create 'fromImage' => image_repotag
+
+    puts 'Pulling busybox image'
+    pull_busybox_image
+  end
 end
