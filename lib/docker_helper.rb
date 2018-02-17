@@ -62,6 +62,8 @@ def destroy_docker_containers(signal:)
 end
 
 # @param [String] registry
+# @param [String] default_login
+# @param [String] default_email
 def docker_login(registry: 'https://index.docker.io/v1/', default_login: '', default_email: '')
   config = (JSON.parse File.read DOCKER_CLIENT_CONFIG if File.exist? DOCKER_CLIENT_CONFIG)
 
@@ -98,7 +100,7 @@ def pull_busybox_image
   Docker.creds = creds
 end
 
-# @param [Array] images
+# @param [Array<String>] images
 def push_images(images:)
   puts images.inspect
   images.each do |image|
@@ -123,7 +125,7 @@ def push_images(images:)
   end
 end
 
-# @param [Array] images
+# @param [Array<String>] images
 def pull_images(images:)
   images.each do |image|
     puts "Pulling image #{image}"
@@ -131,6 +133,9 @@ def pull_images(images:)
   end
 end
 
+# @param [String] srcdir
+# @param [String] prefix
+# @return [StringIO]
 def create_tar(srcdir, prefix = '')
   buffer = StringIO.new
   Gem::Package::TarWriter.new(buffer) do |tar|

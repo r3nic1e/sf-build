@@ -10,8 +10,12 @@ require_relative 'docker_helper'
 
 # Base package class
 class SFPackage
-  attr_reader :build_depends, :name, :build_depends_cache_key, :version
+  # @return [String]
+  attr_reader :name, :version, :build_depends_cache_key
+  # @return [Array<SFPackage>]
+  attr_reader :build_depends
 
+  # @param [String] name
   def initialize(name)
     # dirty hack to deal with kernel packages
     name = Regexp.last_match(1) if name =~ /^(kernel\d+(?:-acl)?)-[a-z]+-\d+/
@@ -20,19 +24,23 @@ class SFPackage
     @version = @recipe = @build_depends = @uploaded_versions = @build_depends_cache_key = nil
   end
 
+  # @return [Boolean]
   def has_recipe?
     @recipe && @recipe.is_a?(Hash)
   end
 
+  # @param [Hash] recipe
   def recipe=(recipe)
     @recipe = recipe
     _on_recipe_updated!
   end
 
+  # @return [Boolean]
   def has_uploaded_versions?
     @uploaded_versions.is_a? Array
   end
 
+  # @param [Array<String>] package_versions
   def uploaded_versions=(package_versions)
     @uploaded_versions = []
 
@@ -52,10 +60,13 @@ class SFPackage
     end
   end
 
+  # @return [Boolean]
   def uploaded?
     @uploaded_versions.include? @version
   end
 
+  # @param [String] distribution
+  # @return [Boolean]
   def has_distribution?(distribution)
     @recipe['ubuntu_distribution'].include? distribution
   end
@@ -96,6 +107,7 @@ class SFPackage
 end
 
 class PackageRepository
+  # @return [String]
   attr_reader :distribution
 
   # @param [String] distribution
@@ -263,6 +275,7 @@ class PackageRepository
 end
 
 class PackageQueue
+  # @return [Array<String>]
   attr_reader :queue
 
   # @param [PackageRepository] repository
@@ -346,7 +359,7 @@ end
 
 # @param [Array] packages
 # @param [Debuild] debuild
-# @return [Array]
+# @return [Array<String>]
 def make_build_queue(packages, debuild)
   return packages if debuild.settings.skip_package_inspect
   package_repository = PackageRepository.new debuild.settings.distribution, debuild
@@ -360,38 +373,3 @@ def make_build_queue(packages, debuild)
 
   package_queue.queue.map { |package_name| package_repository[package_name] }
 end
-
-def get_args
-  options = {
-    release: false
-  }
-  OptionParser.new do |parser|
-    parser.on '-d', '--distribution=NAME', :REQUIRED, 'Ubuntu distribution' do |v|
-      options[:distribution] = v
-    end
-    parser.on '--[no-]release', 'Release mode' do |v|
-      options[:release] = v
-    end
-    parser.on '-h', '--help' do
-      puts parser
-      exit
-    end
-  end.parse! ARGV
-  options[:packages] = ARGV
-
-  exit 1 unless options[:distribution]
-  exit 1 if options[:packages].empty?
-  options
-end
-
-def main
-  $stdin.sync = true
-  $stdout.sync = true
-
-  args = get_args
-  debuild = Debuild.new release: args[:release]
-  debuild.read_settings
-  make_build_queue args[:packages], args[:distribution], debuild, force_build: true
-end
-
-main if $PROGRAM_NAME == __FILE__

@@ -1,15 +1,22 @@
+# @!attribute [r] config
+#   @return [Debuild::Config]
+# @!attribute [r] aptly
+#   @return [Aptly]
 class Debuild
-  # @!attribute [r] config
-  #   @return [Debuild::Config]
   attr_reader :config, :aptly
 
   # @abstract
+  # @!attribute [r] settings
+  #   @return [Hash]
+  # @!attribute [r] gitlab
+  #   @return [Boolean]
   class Config
     attr_reader :settings, :gitlab
     @settings = {}
     # @todo change to global CI detection
     @gitlab = false
 
+    # @return [Integer]
     def timestamp
       @timestamp
     end
@@ -18,22 +25,27 @@ class Debuild
       @timestamp = Time.now.to_i
     end
 
-    def image_name(release: false)
+    # @return [String]
+    def image_name(*)
       @settings['image']['name']
     end
 
+    # @return [String]
     def aptly_repo
       @settings['aptly']['repo']
     end
 
+    # @return [String]
     def aptly_repo_url
       @settings['aptly']['repo_url']
     end
 
+    # @return [String]
     def aptly_api_url
       @settings['aptly']['api_url']
     end
 
+    # @return [Array<String>]
     def apt_sources
       distribution = Debuild::Settings.instance.distribution
       [
@@ -41,27 +53,32 @@ class Debuild
       ]
     end
 
+    # @return [String]
     def output
       @settings['output']
     end
 
+    # @return [String]
     def container
       @settings['container']
     end
 
+    # @return [String]
     def data_container
       @settings['data_container']
     end
 
+    # @return [Hash]
     def signing
       @settings['aptly']['signing']
     end
 
+    # @return [String]
     def snapshot_prefix
       @settings['aptly']['snapshot_prefix']
     end
 
-    # @return [Array]
+    # @return [Array<String>]
     def packages(basedir: Dir.pwd)
       packages = []
       recipes_dir = File.join basedir, 'recipes'
@@ -78,7 +95,9 @@ class Debuild
       packages
     end
   end
-
+  # @param [String] package_name
+  # @param [Boolean] skip_available_packages
+  # @param [String] command
   def test(package_name:, skip_available_packages: false, command: nil)
     available_packages = packages
 
@@ -96,8 +115,6 @@ class Debuild
 
     test_deb package_name: package_name, command: command
   end
-
-  @config = nil
 
   require_relative 'devel'
   require_relative 'release'

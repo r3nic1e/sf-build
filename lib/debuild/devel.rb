@@ -32,6 +32,8 @@ end
 
 class Debuild
   class DevelConfig < Config
+    # @param [String] image_suffix
+    # @param [Boolean] skip_devel
     def initialize(image_suffix: '-devel', skip_devel: false)
       release_settings = YAML.load_file 'release.yml'
 
@@ -60,6 +62,8 @@ class Debuild
       @aptly = Aptly.new aptly_api_url
     end
 
+    # @param [Boolean] release
+    # @return [String]
     def image_name(release: false)
       if release || @use_release_images
         @release_settings['image']['name']
@@ -68,6 +72,7 @@ class Debuild
       end
     end
 
+    # @return [Array<String>]
     def apt_sources
       distribution = Debuild::Settings.instance.distribution
       [
@@ -78,6 +83,8 @@ class Debuild
 
     private
 
+    # @param [Hash] devel_settings
+    # @param [Hash] release_settings
     def check_settings_consistency(devel_settings, release_settings)
       unless devel_settings.key?('aptly') && devel_settings['aptly'].key?('repo')
         puts "No 'aptly.repo' section in devel.yml"

@@ -23,6 +23,8 @@ class Debuild
     Settings.instance
   end
 
+  # @param [Boolean] skip_depends_image
+  # @todo move to settings
   def initialize(skip_depends_image: false)
     docker_login
 
@@ -47,6 +49,7 @@ class Debuild
     end
   end
 
+  # @param [String|SFPackage] package
   def build_deb(package:)
     skip_apt_update = settings.skip_apt_update
     package_name = if package.is_a? SFPackage
@@ -103,6 +106,9 @@ class Debuild
     puts 'BUILD FINISHED'
   end
 
+  # @param [Docker::Container] build_container
+  # @param [String] build_container_name
+  # @param [String] command
   def run_build(build_container:, build_container_name:, command:)
     puts "DEBUG: will run the following command in build container #{build_container_name}"
     puts "DEBUG: #{command}"
@@ -125,6 +131,8 @@ class Debuild
     exit return_code
   end
 
+  # @param [String] image_repotag
+  # @raise [RuntimeError] if build image not found
   def check_build_images(image_repotag:)
     images = Docker::Image.all
     valid_images = []
@@ -137,6 +145,7 @@ class Debuild
     raise RuntimeError("Build image #{image_repotag} not found") unless valid_images
   end
 
+  # @param [Docker::Container] build_container
   def extract_deb_files(build_container:)
     deb_path = File.join @config.output, settings.distribution
     dummy_file = StringIO.new
@@ -198,6 +207,13 @@ class Debuild
     end
   end
 
+  # @param [DOcker::Container] data_container
+  # @param [String] image_repotag
+  # @param [String] image_tag
+  # @param [String] package_name
+  # @option args [Boolean] :skip_apt_update
+  # @option args [Bool] :install_build_depends
+  # @return [Array]
   def create_build_container(data_container:, image_repotag:, image_tag:, package_name:, **args)
     skip_apt_update = args[:skip_apt_update]
     install_build_depends = args[:install_build_depends]
@@ -234,6 +250,11 @@ class Debuild
     [build_container, build_container_name, command]
   end
 
+  # @param [String] image_repotag
+  # @param [String] image_tag
+  # @param [String] package
+  # @param [Boolean] skip_apt_update
+  # @return [String]
   def create_depends_image(image_repotag:, image_tag:, package:, skip_apt_update:)
     image_name = image_repotag.split(':')[0]
     package_name = if package.is_a? SFPackage
@@ -330,6 +351,8 @@ class Debuild
     depends_image_repotag
   end
 
+  # @param [String] image_tag
+  # @return [Docker::Container]
   def create_data_container(image_tag:)
     data_container_name = "#{@config.data_container}-#{image_tag}"
     puts "DEBUG: using data_container => #{data_container_name}"
@@ -352,6 +375,8 @@ class Debuild
     data_container
   end
 
+  # @param [String] package_name
+  # @param [String] command
   def test_deb(package_name:, command: nil)
     image_name = @config.image_name
     image_tag = settings.distribution
@@ -424,6 +449,7 @@ class Debuild
     test_container.remove
   end
 
+  # @param [String|SFPackage] package
   def main(package:)
     package_name = if package.is_a? SFPackage
                      package.name

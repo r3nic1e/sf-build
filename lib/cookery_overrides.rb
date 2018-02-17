@@ -1,3 +1,4 @@
+require 'hiera'
 require 'mkmf'
 require 'syck'
 

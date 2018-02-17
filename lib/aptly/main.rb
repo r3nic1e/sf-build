@@ -13,27 +13,10 @@ class Aptly
     #RestClient.log = 'stderr'
   end
 
-  # @param [Symbol] prefix
-  # @param [Array] methods
-  def self.rename_methods(prefix, *methods)
-    methods.each do |old_name|
-      new_name = "#{prefix}_#{old_name}".to_sym
-      alias_method new_name, old_name
-    end
-  end
-
-  # @param [Module] include_module
-  # @param [Symbol] prefix
-  def self.include_rename(include_module, prefix)
-    methods = include_module.instance_methods(false).map(&:to_sym)
-    include include_module
-    rename_methods prefix, *methods
-  end
-
-  include_rename Publishes, :publish
-  include_rename Repos, :repo
-  include_rename Snapshots, :snapshot
-  include_rename Uploads, :upload
+  include Publishes
+  include Repos
+  include Snapshots
+  include Uploads
 
   private
 

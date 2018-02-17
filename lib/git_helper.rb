@@ -1,4 +1,5 @@
-# @return [Array]
+# @param [String] path
+# @return [Array<String>]
 def get_git_changes(path)
   release_commit = 'HEAD'
   output = `git log --no-color --pretty=format:%P --max-count=1 #{release_commit}`

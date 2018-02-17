@@ -31,6 +31,7 @@ class Debuild
     repo
   end
 
+  # @param [String] repo
   def publish_repo(repo:)
     result = @aptly.publish_create(
       source_kind: 'local', sources: [{ 'Component' => 'main', 'Name' => repo }],
