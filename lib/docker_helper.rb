@@ -34,6 +34,8 @@ module Docker
   end
 end
 
+# Create docker container with --net=host by default
+#
 # @param [Hash] opts
 # @return [Docker::Container]
 def create_docker_container(opts = {})
@@ -43,6 +45,9 @@ def create_docker_container(opts = {})
   container
 end
 
+# Forcefully destroy all created containers
+# Called on signal trap
+#
 # @param [Int] signal
 def destroy_docker_containers(signal:)
   puts "DEBUG: Got signal #{signal}"
@@ -61,6 +66,9 @@ def destroy_docker_containers(signal:)
   exit 0
 end
 
+# Login to docker registry
+# Contains some CI hack
+#
 # @param [String] registry
 # @param [String] default_login
 # @param [String] default_email
@@ -91,6 +99,7 @@ def docker_login(registry: 'https://index.docker.io/v1/', default_login: '', def
   puts "DEBUG: docker login [#{auth}]"
 end
 
+# Pull dummy busybox image
 def pull_busybox_image
   puts 'DEBUG: pulling busybox image'
 
@@ -100,6 +109,8 @@ def pull_busybox_image
   Docker.creds = creds
 end
 
+# Push docker images to registry
+#
 # @param [Array<String>] images
 def push_images(images:)
   puts images.inspect
@@ -125,6 +136,8 @@ def push_images(images:)
   end
 end
 
+# Pull docker images
+#
 # @param [Array<String>] images
 def pull_images(images:)
   images.each do |image|
@@ -133,6 +146,8 @@ def pull_images(images:)
   end
 end
 
+# Create tarball from specified directory
+#
 # @param [String] srcdir
 # @param [String] prefix
 # @return [StringIO]

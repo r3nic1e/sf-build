@@ -5,6 +5,10 @@
 class Debuild
   attr_reader :config, :aptly
 
+  # Abstract class to contain some predefined variables via config files
+  # @see ReleaseConfig
+  # @see DevelConfig
+  #
   # @abstract
   # @!attribute [r] settings
   #   @return [Hash]
@@ -16,35 +20,49 @@ class Debuild
     # @todo change to global CI detection
     @gitlab = false
 
+    # Get current saved timestamp
+    # Used as caching key
+    #
     # @return [Integer]
     def timestamp
       @timestamp
     end
 
+    # Update saved timestamp
     def update_timestamp
       @timestamp = Time.now.to_i
     end
 
+    # Get base image name
+    #
     # @return [String]
     def image_name(*)
       @settings['image']['name']
     end
 
+    # Get aptly repository
+    #
     # @return [String]
     def aptly_repo
       @settings['aptly']['repo']
     end
 
+    # Get base aptly URL
+    #
     # @return [String]
     def aptly_repo_url
       @settings['aptly']['repo_url']
     end
 
+    # Get base aptly API URL
+    #
     # @return [String]
     def aptly_api_url
       @settings['aptly']['api_url']
     end
 
+    # Get rendered apt sources
+    #
     # @return [Array<String>]
     def apt_sources
       distribution = Debuild::Settings.instance.distribution
@@ -53,31 +71,42 @@ class Debuild
       ]
     end
 
+    # Get built packages format
+    #
     # @return [String]
     def output
       @settings['output']
     end
 
+    # Get base container name
+    #
     # @return [String]
     def container
       @settings['container']
     end
 
+    # Get base data container name
+    #
     # @return [String]
     def data_container
       @settings['data_container']
     end
 
+    # Get aptly signing options
+    #
     # @return [Hash]
     def signing
       @settings['aptly']['signing']
     end
 
+    # Get aptly snapshot prefix
     # @return [String]
     def snapshot_prefix
       @settings['aptly']['snapshot_prefix']
     end
 
+    # Get available packages paths
+    #
     # @return [Array<String>]
     def packages(basedir: Dir.pwd)
       packages = []
@@ -95,29 +124,13 @@ class Debuild
       packages
     end
   end
-  # @param [String] package_name
-  # @param [Boolean] skip_available_packages
-  # @param [String] command
-  def test(package_name:, skip_available_packages: false, command: nil)
-    available_packages = packages
-
-    puts "DEBUG: #{package_name}"
-    puts "DEBUG: #{available_packages.include? package_name}"
-
-    unless skip_available_packages || available_packages.include?(package_name)
-      puts "Unknown package #{package_name}, use one of these: #{available_packages.sort}"
-      exit 1
-    end
-
-    # @todo fix prefix
-    prefix = ''
-    package_name = "#{prefix}#{package_name}"
-
-    test_deb package_name: package_name, command: command
-  end
 
   require_relative 'devel'
   require_relative 'release'
+
+  # Read config file and initialize Aptly instance
+  # @see ReleaseConfig
+  # @see DevelConfig
   def read_settings(*args, **kwargs)
     @config = (settings.release ? ReleaseConfig : DevelConfig).new(*args, **kwargs)
     @aptly = Aptly.new @config.aptly_api_url

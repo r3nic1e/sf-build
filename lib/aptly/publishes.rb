@@ -1,15 +1,22 @@
 class Aptly
+  # Module to work with aptly publish API
+  # @see https://www.aptly.info/doc/api/publish/
   module Publishes
+    # Default signing settings (skip signing)
     DEFAULT_SIGNING = {
       Skip: true
     }.freeze
 
+    # List published repositories or snapshots
+    #
     # @return [String]
     def publish_get
       r = aptly_request 'GET', 'api/publish'
       r.body
     end
 
+    # Publish snapshot or repository
+    #
     # @param [String] source_kind
     # @param [Array<String>] sources
     # @param [String] prefix
@@ -51,6 +58,8 @@ class Aptly
       r.body
     end
 
+    # Update published repository or switch published snapshot
+    #
     # @param [String] prefix
     # @param [String] distribution
     # @param [Array<String>] snapshots
@@ -68,6 +77,8 @@ class Aptly
       r.body
     end
 
+    # Unpublish repository or snapshot
+    #
     # @param [String] prefix
     # @param [Array<String>] distribution
     # @param [Integer] force

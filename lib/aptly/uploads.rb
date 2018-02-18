@@ -1,7 +1,11 @@
 require 'json'
 
 class Aptly
+  # Module to work with aptly file upload API
+  # @see https://www.aptly.info/doc/api/files/
   module Uploads
+    # List remote directories or files in remote directory
+    #
     # @param [String] directory
     # @return [String]
     # @raise [Aptly::NotExistsError] if directory doesn't exist
@@ -17,6 +21,8 @@ class Aptly
       r.body
     end
 
+    # Delete remote directory
+    #
     # @param [String] directory
     # @param [String] filename
     # @return [String]
@@ -30,6 +36,8 @@ class Aptly
     r.body
     end
 
+    # Upload files to remote directory
+    #
     # @param [String] directory
     # @param [Array<String>] files
     # @return [Array]

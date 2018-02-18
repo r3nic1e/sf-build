@@ -6,11 +6,13 @@ require_relative 'repos'
 require_relative 'snapshots'
 require_relative 'uploads'
 
+# High level aptly api client
+# @see https://www.aptly.info/doc/api/
 class Aptly
-  # @param [String] aptly_api_url
+  # @param [String] aptly_api_url base aptly URL
   def initialize(aptly_api_url)
     @aptly_api_url = aptly_api_url
-    #RestClient.log = 'stderr'
+    # RestClient.log = 'stderr'
   end
 
   include Publishes
@@ -20,11 +22,13 @@ class Aptly
 
   private
 
-  # @param [String] method
-  # @param [String] path
-  # @param [Object] payload
-  # @param [Hash] headers
-  # @return [RestClient::Response]
+  # Creates request to aptly api and returns response
+  #
+  # @param [String] method HTTP method to use
+  # @param [String] path URL path after base aptly URL
+  # @param [Object] payload GET arguments or request body
+  # @param [Hash] headers HTTP request headers
+  # @return [RestClient::Response] aptly response
   def aptly_request(method, path, payload: nil, headers: {})
     url = URI.join(@aptly_api_url, path).to_s
 

@@ -1,11 +1,17 @@
 class Aptly
+  # Module to work with aptly snapshot API
+  # @see https://www.aptly.info/doc/api/snapshots/
   module Snapshots
+    # List available snapshots
+    #
     # @return [String]
     def snapshot_get
       r = aptly_request('GET', 'api/snapshots')
       r.body
     end
 
+    # Create snapshot from repo
+    #
     # @param [String] repo
     # @param [String] name
     # @param [String] description
@@ -34,6 +40,8 @@ class Aptly
       r.body
     end
 
+    # Create snapshot from package list
+    #
     # @param [String] name
     # @param [String] description
     # @param [Array<String>] source_snapshots
@@ -58,6 +66,8 @@ class Aptly
       return r.body
     end
 
+    # Update snapshot description or name
+    #
     # @param [String] name
     # @param [String] new_name
     # @param [String] new_description
@@ -85,6 +95,8 @@ class Aptly
       end
     end
 
+    # Get information about repository
+    #
     # @param [String] name
     # @return [String]
     # @raise [Aptly::NotExistsError] if snapshot doesn't exist
@@ -96,6 +108,8 @@ class Aptly
       r.body
     end
 
+    # Delete snapshot
+    #
     # @param [String] name
     # @param [Integer] force
     # @return [String]
@@ -114,6 +128,7 @@ class Aptly
       r.body
     end
 
+    # Show difference between two snapshots
     # @param [String] left
     # @param [String] right
     # @return [String]
@@ -122,6 +137,8 @@ class Aptly
       r.body
     end
 
+    # List packages in snapshot
+    #
     # @param [String] name
     # @return [String]
     # @raise [Aptly::NotExistsError] if snapshot doesn't exist
@@ -133,6 +150,8 @@ class Aptly
       r.body
     end
 
+    # Search for packages in snapshot
+    #
     # @param [String] snapshot
     # @param [String] name
     # @param [String] version

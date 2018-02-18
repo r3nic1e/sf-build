@@ -4,13 +4,19 @@ require_relative 'config'
 require_relative 'repository'
 
 class Hash
+  # Deep duplication
   def deep_dup
     each_with_object(dup) do |(key, value), hash|
       hash[key] = (value.is_a?(Hash) ? value.deep_dup : value)
     end
   end
 
-  # http://apidock.com/rails/v4.2.7/Hash/deep_merge%21
+  # Deep hash merge
+  # @see http://apidock.com/rails/v4.2.7/Hash/deep_merge%21
+  #
+  # @param [Hash] other_hash
+  # @param [Block] block
+  # @return [Hash]
   def deep_merge(other_hash, &block)
     other_hash.each_pair do |current_key, other_value|
       this_value = self[current_key]
@@ -31,6 +37,7 @@ class Hash
 end
 
 class Debuild
+  # Development configuration
   class DevelConfig < Config
     # @param [String] image_suffix
     # @param [Boolean] skip_devel
@@ -62,6 +69,8 @@ class Debuild
       @aptly = Aptly.new aptly_api_url
     end
 
+    # Get base image name
+    #
     # @param [Boolean] release
     # @return [String]
     def image_name(release: false)
@@ -72,6 +81,8 @@ class Debuild
       end
     end
 
+    # Get rendered apt sources
+    #
     # @return [Array<String>]
     def apt_sources
       distribution = Debuild::Settings.instance.distribution
@@ -83,6 +94,8 @@ class Debuild
 
     private
 
+    # Check development configuration consistency
+    #
     # @param [Hash] devel_settings
     # @param [Hash] release_settings
     def check_settings_consistency(devel_settings, release_settings)

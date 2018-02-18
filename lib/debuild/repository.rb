@@ -1,4 +1,6 @@
 class Debuild
+  # Upload built package to aptly and add to repository
+  #
   # @param [String] directory
   # @param [String] repo
   def upload_deb(directory:, repo:)
@@ -17,6 +19,8 @@ class Debuild
     @aptly.repo_add_packages_from_dir name: repo, dir: repo, force_replace: config.settings['aptly']['force_replace']
   end
 
+  # Create aptly repository
+  #
   # @return [String]
   def create_repo
     repo = "#{@config.aptly_repo}-#{settings.distribution}"
@@ -31,6 +35,8 @@ class Debuild
     repo
   end
 
+  # Publish aptly repository
+  #
   # @param [String] repo
   def publish_repo(repo:)
     result = @aptly.publish_create(
@@ -43,6 +49,8 @@ class Debuild
     puts "Repo #{repo} already published"
   end
 
+  # Refresh aptly repository
+  # 
   # @param [String] repo
   def update_repo(repo:)
     puts "DEBUG: updating aptly publish for repo #{repo} with distribution #{settings.distribution}"

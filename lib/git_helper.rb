@@ -1,3 +1,5 @@
+# Get changed files according to git information
+#
 # @param [String] path
 # @return [Array<String>]
 def get_git_changes(path)

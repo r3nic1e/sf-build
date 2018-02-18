@@ -3,6 +3,7 @@ require_relative 'config'
 require_relative 'repository'
 
 class Debuild
+  # Release configuration
   class ReleaseConfig < Config
     def initialize(*)
       settings = YAML.load_file 'release.yml'

@@ -4,7 +4,34 @@ require 'docker'
 require_relative '../docker_helper'
 require_relative 'config'
 
+# Main class containing build logic
 class Debuild
+  # Singleton class to contain some runtime variables
+  #
+  # @!attribute [rw] distribution
+  #   @return [String]
+  # @!attribute [rw] skip_apt_update
+  #   @return [Boolean]
+  # @!attribute [rw] skip_package_build
+  #   @return [Boolean]
+  # @!attribute [rw] skip_package_upload
+  #   @return [Boolean]
+  # @!attribute [rw] skip_package_inspect
+  #   @return [Boolean]
+  # @!attribute [rw] use_existing_depends_image
+  #   @return [Boolean]
+  # @!attribute [rw] force_package_build
+  #   @return [Boolean]
+  # @!attribute [rw] command
+  #   @return [String]
+  # @!attribute [rw] release
+  #   @return [Boolean]
+  # @!attribute [rw] use_release_images
+  #   @return [Boolean]
+  # @!attribute [rw] verbose
+  #   @return [Boolean]
+  # @!attribute [rw] skip_available_packages
+  #   @return [Boolean]
   class Settings
     include Singleton
     attr_accessor :distribution, :skip_apt_update, :skip_package_build, :skip_package_upload, :skip_package_inspect,
@@ -16,8 +43,11 @@ class Debuild
     end
   end
 
+  # @return [Boolean]
   attr_accessor :skip_depends_image
 
+  # Return settings singleton
+  #
   # @return [Settings]
   def settings
     Settings.instance
@@ -31,6 +61,7 @@ class Debuild
     @skip_depends_image = skip_depends_image
   end
 
+  # Clean directory with built packages
   def clean_deb
     deb_path = File.join @config.output, settings.distribution
 
@@ -49,6 +80,8 @@ class Debuild
     end
   end
 
+  # Build package
+  #
   # @param [String|SFPackage] package
   def build_deb(package:)
     skip_apt_update = settings.skip_apt_update
@@ -106,6 +139,8 @@ class Debuild
     puts 'BUILD FINISHED'
   end
 
+  # Run build container and collect logs
+  #
   # @param [Docker::Container] build_container
   # @param [String] build_container_name
   # @param [String] command
@@ -131,6 +166,7 @@ class Debuild
     exit return_code
   end
 
+  # Get valid for build images
   # @param [String] image_repotag
   # @raise [RuntimeError] if build image not found
   def check_build_images(image_repotag:)
@@ -145,6 +181,8 @@ class Debuild
     raise RuntimeError("Build image #{image_repotag} not found") unless valid_images
   end
 
+  # Extract built packages from build container
+  #
   # @param [Docker::Container] build_container
   def extract_deb_files(build_container:)
     deb_path = File.join @config.output, settings.distribution
@@ -169,6 +207,14 @@ class Debuild
     dummy_file.close
   end
 
+  # Inject some folders into container
+  # Currently these folders are injected:
+  #   * recipes dir
+  #   * '/bin'
+  #   * '/lib'
+  #   * ssh dir of current user
+  # There are some hacks for CI because of alternative ssh configuration
+  #
   # @param [Docker::Container] container
   def inject_recipes_to_container(container:)
     packages_dir = File.join Dir.pwd, 'recipes'
@@ -207,6 +253,8 @@ class Debuild
     end
   end
 
+  # Create build container
+  #
   # @param [DOcker::Container] data_container
   # @param [String] image_repotag
   # @param [String] image_tag
@@ -250,6 +298,8 @@ class Debuild
     [build_container, build_container_name, command]
   end
 
+  # Create image with preinstalled depends packages
+  #
   # @param [String] image_repotag
   # @param [String] image_tag
   # @param [String] package
@@ -351,6 +401,9 @@ class Debuild
     depends_image_repotag
   end
 
+  # Creates data container
+  # It is used for caching packages sources
+  #
   # @param [String] image_tag
   # @return [Docker::Container]
   def create_data_container(image_tag:)
@@ -375,6 +428,8 @@ class Debuild
     data_container
   end
 
+  # Run testing container and print package information
+  #
   # @param [String] package_name
   # @param [String] command
   def test_deb(package_name:, command: nil)
@@ -449,6 +504,29 @@ class Debuild
     test_container.remove
   end
 
+  # Test build package
+  # @param [String] package_name
+  # @param [Boolean] skip_available_packages
+  # @param [String] command
+  def test(package_name:, skip_available_packages: false, command: nil)
+    available_packages = packages
+
+    puts "DEBUG: #{package_name}"
+    puts "DEBUG: #{available_packages.include? package_name}"
+
+    unless skip_available_packages || available_packages.include?(package_name)
+      puts "Unknown package #{package_name}, use one of these: #{available_packages.sort}"
+      exit 1
+    end
+
+    # @todo fix prefix
+    prefix = ''
+    package_name = "#{prefix}#{package_name}"
+
+    test_deb package_name: package_name, command: command
+  end
+
+  # Build package and upload it to aptly
   # @param [String|SFPackage] package
   def main(package:)
     package_name = if package.is_a? SFPackage
@@ -474,6 +552,7 @@ class Debuild
     update_aptly
   end
 
+  # Upload built package to aptly and refresh aptly repository
   def update_aptly
     distribution = settings.distribution
     puts "Distribution: #{distribution}"
@@ -499,6 +578,7 @@ class Debuild
     puts 'Done'
   end
 
+  # Pull build docker images
   def pull_build_images
     image_name = @config.image_name
     image_repotag = "#{image_name}:#{settings.distribution}"

@@ -1,7 +1,11 @@
 require_relative 'errors'
 
 class Aptly
+  # Module to work with aptly repository API
+  # @see https://www.aptly.info/doc/api/repos/
   module Repos
+    # Create empty repository
+    #
     # @param [String] name
     # @param [String] comment
     # @param [String] default_distribution
@@ -23,6 +27,8 @@ class Aptly
       r.body
     end
 
+    # Get information about repository
+    #
     # @param [String] name
     # @return [String]
     # @raise [Aptly::NotExistsError] if repo doesn't exist
@@ -32,6 +38,8 @@ class Aptly
       r.body
     end
 
+    # Update repository information
+    #
     # @param [String] name
     # @param [String] comment
     # @param [String] default_distribution
@@ -49,12 +57,16 @@ class Aptly
       r.body
     end
 
+    # List available repositories
+    #
     # @return [String]
     def repo_get
       r = aptly_request 'GET', 'api/repos'
       r.body
     end
 
+    # Delete repository
+    #
     # @param [String] name
     # @param [Integer] force
     # @return [String]
@@ -71,6 +83,8 @@ class Aptly
       r.body
     end
 
+    # Import packages to repository from remote directory
+    #
     # @param [String] name
     # @param [String] dir
     # @param [Integer] no_remove
@@ -84,6 +98,8 @@ class Aptly
       r.body
     end
 
+    # Import remote packages to repository
+    #
     # @param [String] name
     # @param [Array<String>] packages
     # @return [String]
@@ -103,6 +119,8 @@ class Aptly
       r.body
     end
 
+    # Remove packages from repository
+    #
     # @param [String] name
     # @param [Array<String>] packages
     # @return [String]
@@ -116,6 +134,8 @@ class Aptly
       r.body
     end
 
+    # Search for packages in repository
+    #
     # @param [String] repo
     # @param [String] name
     # @param [String] version
