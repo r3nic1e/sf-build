@@ -10,14 +10,14 @@ require 'inspect_package'
 # @return [Hash]
 def parse_args
   options = {
-    distribution: 'precise',
+    distribution: 'focal',
     verbose: false
   }
   # @type [Debuild::Settings]
   settings = Debuild::Settings.instance
 
   OptionParser.new do |parser|
-    parser.on '-d', '--distribution', %w[precise trusty xenial], 'Ubuntu distribution to build for', :REQUIRED do |v|
+    parser.on '-d', '--distribution', %w[bionic focal], 'Ubuntu distribution to build for', :REQUIRED do |v|
       options[:distribution] = v
       settings.distribution = v
     end

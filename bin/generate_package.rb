@@ -13,8 +13,6 @@ class <%= class_name %> < SFRecipe
   version '0.0.0'
   revision 1
 
-  ubuntu_distribution 'precise'
-
   #replaces '<%= package_name %>'
   #conflicts '<%= package_name %>'
 

@@ -39,7 +39,7 @@ class Debuild
                   :skip_available_packages
 
     def initialize
-      @distribution = 'precise'
+      @distribution = 'bionic'
     end
   end
 
@@ -212,39 +212,19 @@ class Debuild
   #   * recipes dir
   #   * '/bin'
   #   * '/lib'
-  #   * ssh dir of current user
-  # There are some hacks for CI because of alternative ssh configuration
   #
   # @param [Docker::Container] container
   def inject_recipes_to_container(container:)
     packages_dir = File.join Dir.pwd, 'recipes'
-    ssh_dir = File.join (ENV['HOME'] || '/root'), '.ssh'
     bin_dir = File.join Dir.pwd, 'bin'
     lib_dir = File.join Dir.pwd, 'lib'
-
-    # dirty hacks for gitlab
-    if @config.gitlab
-      FileUtils.mkpath(ssh_dir, mode: 0o700) unless File.directory? ssh_dir
-
-      ssh_private_key = File.join ssh_dir, 'id_rsa'
-      ssh_config = File.join ssh_dir, 'config'
-
-      unless File.file? ssh_private_key
-        private_key_contents = ENV['SSH_PRIVATE_KEY']
-        File.open(ssh_private_key, 'w') { |f| f.write private_key_contents } if private_key_contents
-      end
-
-      FileUtils.cp_r File.join(Dir.pwd, 'docker', 'templates', 'ssh_config'), ssh_config
-
-      File.chmod 0o600, ssh_private_key
-      File.chmod 0o600, ssh_config
-    end
+    netrc = File.join Dir.home, '.netrc'
 
     dirs = {
       packages_dir => '/recipes',
-      ssh_dir => '/.ssh',
-      bin_dir => '/bin',
-      lib_dir => '/lib'
+      bin_dir => '/usr/local/bin',
+      lib_dir => '/usr/local/lib',
+      netrc => '/root/.netrc',
     }
 
     dirs.each do |srcdir, dstdir|
@@ -267,9 +247,9 @@ class Debuild
     install_build_depends = args[:install_build_depends]
 
     if install_build_depends
-      default_command = %w[/bin/fpm-cook package --install-build-depends --tmp-root=/build --cache-dir=/sources --pkg-dir=/deb --color]
+      default_command = %w[/usr/local/bin/fpm-cook package --install-build-depends --tmp-root=/build --cache-dir=/sources --pkg-dir=/deb --color]
     else
-      default_command = %w[/bin/fpm-cook package --tmp-root=/build --cache-dir=/sources --pkg-dir=/deb --color]
+      default_command = %w[/usr/local/bin/fpm-cook package --tmp-root=/build --cache-dir=/sources --pkg-dir=/deb --color]
     end
 
     puts 'DEBUG: default command to run in build container'
@@ -356,7 +336,7 @@ class Debuild
     puts "DEBUG: depends_container_name  => #{depends_container_name}"
     puts "DEBUG: depends_container_image => #{depends_container_image}"
 
-    default_command = %w[/bin/fpm-cook install-build-deps --color]
+    default_command = %w[/usr/local/bin/fpm-cook install-build-deps --color]
 
     puts 'DEBUG: default command to run in depends container'
     puts "DEBUG: #{default_command}"

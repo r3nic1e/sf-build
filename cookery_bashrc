@@ -8,5 +8,3 @@ export PATH="$PATH:/usr/src/bin"
 alias build="build.rb"
 alias gen="generate_package.rb"
 alias check="test.rb"
-
-# EOF

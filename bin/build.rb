@@ -13,7 +13,7 @@ def parse_args
   settings = Debuild::Settings.instance
 
   OptionParser.new do |parser|
-    parser.on '-d', '--distribution', %w[natty precise trusty xenial], 'Ubuntu distribution to build for', :REQUIRED do |v|
+    parser.on '-d', '--distribution', %w[bionic focal], 'Ubuntu distribution to build for', :REQUIRED do |v|
       settings.distribution = v
     end
     parser.on '-v', '--verbose', 'Show build logs' do |v|

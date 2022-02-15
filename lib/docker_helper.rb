@@ -72,16 +72,18 @@ end
 # @param [String] registry
 # @param [String] default_login
 # @param [String] default_email
-def docker_login(registry: 'https://index.docker.io/v1/', default_login: '', default_email: '')
+def docker_login(registry: '', default_login: 'gitlab-ci-token', default_email: '')
   config = (JSON.parse File.read DOCKER_CLIENT_CONFIG if File.exist? DOCKER_CLIENT_CONFIG)
 
-  if config.nil?
+  if registry.empty?
     registry = ENV['CI_REGISTRY']
     unless registry
       puts 'Failed to get registry to login to'
       return
     end
+  end
 
+  if config.nil?
     email = default_email
     login = default_login
     password = ENV['CI_BUILD_TOKEN']

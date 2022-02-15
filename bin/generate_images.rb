@@ -18,7 +18,7 @@ require 'git_helper'
 require_relative 'build'
 
 ROOT_PATH = File.realpath File.expand_path('../../', __FILE__)
-DISTRIBUTIONS = %w[precise trusty xenial].freeze
+DISTRIBUTIONS = %w[bionic focal].freeze
 
 UBUNTU_BASE_IMAGE = 'ubuntu'.freeze
 
@@ -170,7 +170,7 @@ def build_images(debuild:, templates:, dockerfiles:)
 
     Docker.options = { read_timeout: 900 }
 
-    image = Docker::Image.build_from_dir distribution_path, dockerfile: dockerfile[:src], t: tag do |chunk|
+    image = Docker::Image.build_from_dir distribution_path, dockerfile: dockerfile[:src], t: tag, networkmode: 'host' do |chunk|
       begin
         info = JSON.parse! chunk
         if info.key? 'stream'

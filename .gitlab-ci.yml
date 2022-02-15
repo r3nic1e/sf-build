@@ -1,0 +1,48 @@
+stages:
+  - sf-build
+  - packages
+
+.package_template:
+  stage: packages
+  tags:
+    - docker
+  image: "$CI_REGISTRY_IMAGE:sf-build"
+  before_script:
+    - chmod 600 /root/.netrc
+  script:
+    - ./bin/generate_images.rb --release --distribution=$CI_ENVIRONMENT_NAME
+    - ./bin/build.rb --release --verbose --distribution=$CI_ENVIRONMENT_NAME
+  variables:
+    DOCKER_URL: tcp://localhost:2376
+    DOCKER_CERT_PATH : "/certs/client"
+    SSL_CERT_PATH : "/certs/client"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# create sf-build image
+"Prepare sf-build image with ruby requirements":
+  stage: sf-build
+  tags:
+    - docker
+  script:
+    - docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN $CI_REGISTRY
+    - docker build --network=host -t $CI_REGISTRY_IMAGE:sf-build .
+    - docker push $CI_REGISTRY_IMAGE:sf-build
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - Dockerfile
+        - Gemfile
+        - Gemfile.lock
+        - entrypoint.sh
+        - cookery_bashrc
+
+"Build packages for ubuntu:bionic":
+  extends:
+    - .package_template
+  environment: bionic
+
+"Build packages for ubuntu:focal":
+  extends:
+    - .package_template
+  environment: focal

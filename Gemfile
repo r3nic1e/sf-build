@@ -4,7 +4,7 @@ source 'https://rubygems.org'
 gem 'docker-api'
 gem 'rest-client'
 gem 'git'
-gem 'fpm-cookery'
+gem 'fpm-cookery', '>=0.35.1'
 gem 'puppet'
 gem 'syck'
 

@@ -68,7 +68,7 @@ class SFPackage
   # @param [String] distribution
   # @return [Boolean]
   def has_distribution?(distribution)
-    @recipe['ubuntu_distribution'].include? distribution
+    @recipe['ubuntu_distribution'].empty? or @recipe['ubuntu_distribution'].include? distribution
   end
 
   private
@@ -168,13 +168,13 @@ class PackageRepository
       puts "DEBUG: recipe #{recipe_file} not found"
       return
     end
-    inspect_command = "/bin/fpm-cook inspect #{recipe_file}".split
+    inspect_command = "/usr/local/bin/fpm-cook inspect #{recipe_file}".split
 
     puts "DEBUG: fpm-cook inspect '#{package.name}' (#{Thread.current})"
     stdout, stderr, rcode = @inspect_container.exec(inspect_command)
 
     if rcode != 0
-      puts "DEBUG: rcode #{rcode}, stderr: #{stderr}"
+      puts "DEBUG: rcode #{rcode}, stderr: #{stderr.join('')}"
       puts 'Error while inspecting package'
       exit 1
     end
@@ -210,7 +210,7 @@ class PackageRepository
     puts "DEBUG: inspect_image_repotag   => #{inspect_image_repotag}"
     puts "DEBUG: inspect_container_name  => #{inspect_container_name}"
 
-    command = %w[chmod 755 /bin /lib /recipes]
+    command = %w[chmod 755 /usr/local/bin /usr/local/lib /recipes]
 
     inspect_environment = {
       SKIP_UPDATE: 0,
